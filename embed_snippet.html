@@ -1,0 +1,45 @@
+<!-- 
+  VNRVJIET Chat Widget – Embed Snippet
+  =====================================
+  Add this code to your college website to embed 
+  the admissions chatbot as a floating widget.
+  
+  Replace YOUR_DOMAIN with the actual deployment URL.
+-->
+
+<!-- Option 1: Full iframe embed (recommended) -->
+<iframe
+  id="vnrvjiet-chatbot"
+  src="https://YOUR_DOMAIN/widget"
+  style="
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 420px;
+    height: 640px;
+    border: none;
+    z-index: 9999;
+    background: transparent;
+  "
+  sandbox="allow-scripts allow-same-origin allow-forms"
+  title="VNRVJIET Admissions Chat"
+  loading="lazy"
+></iframe>
+
+<!-- 
+  Option 2: Script-based embed (auto-creates iframe)
+  Uncomment below and remove the iframe above if preferred.
+-->
+<!--
+<script>
+(function() {
+  var iframe = document.createElement('iframe');
+  iframe.src = 'https://YOUR_DOMAIN/widget';
+  iframe.style.cssText = 'position:fixed;bottom:0;right:0;width:420px;height:640px;border:none;z-index:9999;background:transparent;';
+  iframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
+  iframe.title = 'VNRVJIET Admissions Chat';
+  iframe.loading = 'lazy';
+  document.body.appendChild(iframe);
+})();
+</script>
+-->
