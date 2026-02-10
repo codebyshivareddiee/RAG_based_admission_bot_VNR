@@ -20,7 +20,7 @@
   const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
-  const typingEl = document.getElementById("typing-indicator");
+  let typingEl = null;
 
   // ── State ────────────────────────────────────────────────────
   let isOpen = false;
@@ -40,9 +40,13 @@
     });
   }
 
-  /** Minimal Markdown → HTML (bold, italic, lists, line breaks) */
+  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks) */
   function renderMarkdown(text) {
     let html = text
+      // Headings: ### h3, ## h2, # h1 (must be at line start)
+      .replace(/^###\s+(.+)$/gm, "<strong style='font-size:1.05em;display:block;margin:8px 0 4px;'>$1</strong>")
+      .replace(/^##\s+(.+)$/gm, "<strong style='font-size:1.1em;display:block;margin:8px 0 4px;'>$1</strong>")
+      .replace(/^#\s+(.+)$/gm, "<strong style='font-size:1.15em;display:block;margin:8px 0 4px;'>$1</strong>")
       // Bold **text**
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       // Italic *text*
@@ -154,12 +158,21 @@
   }
 
   function showTyping() {
-    typingEl.classList.add("active");
+    if (typingEl) return; // already showing
+    typingEl = document.createElement("div");
+    typingEl.id = "typing-indicator";
+    typingEl.className = "typing-indicator active";
+    typingEl.innerHTML =
+      '<div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+    messagesEl.appendChild(typingEl);
     scrollToBottom();
   }
 
   function hideTyping() {
-    typingEl.classList.remove("active");
+    if (typingEl) {
+      typingEl.remove();
+      typingEl = null;
+    }
   }
 
   function scrollToBottom() {

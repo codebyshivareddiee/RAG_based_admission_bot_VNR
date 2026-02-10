@@ -41,17 +41,47 @@ def _normalise_branch(raw: str) -> str:
         "electrical": "EEE",
         "it": "IT",
         "information technology": "IT",
-        "mech": "MECH",
-        "mechanical": "MECH",
-        "civil": "CIVIL",
-        "ai": "CSE (AI & ML)",
-        "ai ml": "CSE (AI & ML)",
-        "ai & ml": "CSE (AI & ML)",
-        "aiml": "CSE (AI & ML)",
-        "artificial intelligence": "CSE (AI & ML)",
-        "data science": "CSE (Data Science)",
-        "ds": "CSE (Data Science)",
-        "csd": "CSE (Data Science)",
+        "mech": "ME",
+        "me": "ME",
+        "mechanical": "ME",
+        "civil": "CIV",
+        "civ": "CIV",
+        "ai": "AID",
+        "ai ml": "CSE-CSM",
+        "ai & ml": "CSE-CSM",
+        "aiml": "CSE-CSM",
+        "artificial intelligence": "CSE-CSM",
+        "ai & ds": "AID",
+        "ai ds": "AID",
+        "aids": "AID",
+        "ai & data science": "AID",
+        "data science": "CSE-CSD",
+        "ds": "CSE-CSD",
+        "csd": "CSE-CSD",
+        "cse-csd": "CSE-CSD",
+        "csm": "CSE-CSM",
+        "cse-csm": "CSE-CSM",
+        "csc": "CSE-CSC",
+        "cse-csc": "CSE-CSC",
+        "cyber security": "CSE-CSC",
+        "cso": "CSE-CSO",
+        "cse-cso": "CSE-CSO",
+        "iot": "CSE-CSO",
+        "internet of things": "CSE-CSO",
+        "csb": "CSB",
+        "cs business": "CSB",
+        "business systems": "CSB",
+        "aid": "AID",
+        "aut": "AUT",
+        "automobile": "AUT",
+        "bio": "BIO",
+        "biotech": "BIO",
+        "biotechnology": "BIO",
+        "eie": "EIE",
+        "rai": "RAI",
+        "robotics": "RAI",
+        "robotics & ai": "RAI",
+        "vlsi": "VLSI",
     }
     return mapping.get(raw.strip().lower(), raw.strip().upper())
 
@@ -64,13 +94,24 @@ def _normalise_category(raw: str) -> str:
         "obc": "BC-D",
         "bc-a": "BC-A",
         "bc-b": "BC-B",
+        "bc-c": "BC-C",
         "bc-d": "BC-D",
         "bc-e": "BC-E",
         "bca": "BC-A",
         "bcb": "BC-B",
+        "bcc": "BC-C",
         "bcd": "BC-D",
         "bce": "BC-E",
         "sc": "SC",
+        "sc-i": "SC-I",
+        "sc-ii": "SC-II",
+        "sc-iii": "SC-III",
+        "sc-1": "SC-I",
+        "sc-2": "SC-II",
+        "sc-3": "SC-III",
+        "sc1": "SC-I",
+        "sc2": "SC-II",
+        "sc3": "SC-III",
         "st": "ST",
         "ews": "EWS",
     }
@@ -84,6 +125,7 @@ def get_cutoff(
     round_num: int | None = None,
     gender: str = "Any",
     quota: str = "Convenor",
+    ph_type: str | None = None,
 ) -> CutoffResult:
     """
     Look up exact cutoff from Firestore.
@@ -94,8 +136,9 @@ def get_cutoff(
     category : str – e.g. "OC", "BC-A", "SC"
     year : int     – counselling year (defaults to latest available)
     round_num : int – counselling round (defaults to latest)
-    gender : str   – "Any" | "Female"
-    quota : str    – "Convenor" | "Management"
+    gender : str   – "Boys" | "Girls"
+    quota : str    – "Convenor" | "SPORTS" | "CAP" | "NCC" | "OTHERS"
+    ph_type : str  – PH disability code: "PHV","PHH","PHO","PHM","PHA" or None
     """
     branch = _normalise_branch(branch)
     category = _normalise_category(category)
@@ -108,6 +151,9 @@ def get_cutoff(
     query = query.where(filter=FieldFilter("category", "==", category))
     query = query.where(filter=FieldFilter("gender", "==", gender))
     query = query.where(filter=FieldFilter("quota", "==", quota))
+
+    if ph_type:
+        query = query.where(filter=FieldFilter("ph_type", "==", ph_type))
 
     if year:
         query = query.where(filter=FieldFilter("year", "==", year))
@@ -147,7 +193,8 @@ def get_cutoff(
         message=(
             f"The closing cutoff rank for {best['branch']} under {best['category']} "
             f"category in Year {best['year']}, Round {best['round']} "
-            f"({best['quota']} quota) was **{best['cutoff_rank']:,}**."
+            f"({best['quota']} quota) was **{best['cutoff_rank']:,}**.\n\n"
+            f"⚠️ _This is based on previous year data and cutoffs may vary this year._"
         ),
         all_results=rows,
     )
@@ -159,12 +206,13 @@ def check_eligibility(
     category: str,
     year: int | None = None,
     round_num: int | None = None,
+    gender: str = "Boys",
 ) -> CutoffResult:
     """
     Check if a given rank qualifies for a branch + category.
     Uses the latest available year/round if not specified.
     """
-    result = get_cutoff(branch, category, year, round_num)
+    result = get_cutoff(branch, category, year, round_num, gender=gender)
 
     if result.cutoff_rank is None:
         result.eligible = None
@@ -175,17 +223,19 @@ def check_eligibility(
     if result.eligible:
         result.message = (
             f"With a rank of **{rank:,}**, you are **eligible** for "
-            f"{result.branch} under {result.category} category "
-            f"(Year {result.year}, Round {result.round}, {result.quota} quota). "
-            f"The closing rank was **{result.cutoff_rank:,}**."
+            f"{result.branch} under {result.category} category ({result.gender}) "
+            f"based on Year {result.year}, Round {result.round} ({result.quota} quota) cutoffs. "
+            f"The closing rank was **{result.cutoff_rank:,}**.\n\n"
+            f"⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
         )
     else:
         result.message = (
             f"With a rank of **{rank:,}**, you are **not eligible** for "
-            f"{result.branch} under {result.category} category "
-            f"(Year {result.year}, Round {result.round}, {result.quota} quota). "
+            f"{result.branch} under {result.category} category ({result.gender}) "
+            f"based on Year {result.year}, Round {result.round} ({result.quota} quota) cutoffs. "
             f"The closing rank was **{result.cutoff_rank:,}**. "
-            f"Your rank needs to be ≤ {result.cutoff_rank:,} for this seat."
+            f"Your rank needs to be ≤ {result.cutoff_rank:,} for this seat.\n\n"
+            f"⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
         )
 
     return result
