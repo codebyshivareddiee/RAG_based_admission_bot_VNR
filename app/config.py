@@ -5,13 +5,22 @@ All secrets stay in .env – never hard-coded.
 
 from __future__ import annotations
 
+import logging
 import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+logger = logging.getLogger("app.config")
+
+# Look for .env in the project root
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+_env_loaded = load_dotenv(dotenv_path=_env_path)
+print(f"[app.config] .env path: {_env_path}", file=sys.stderr)
+print(f"[app.config] .env exists: {_env_path.exists()}", file=sys.stderr)
+print(f"[app.config] .env loaded: {_env_loaded}", file=sys.stderr)
 
 BASE_DIR = Path(__file__).resolve().parent
 

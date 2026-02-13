@@ -307,7 +307,8 @@ def extract_page(pdf_path: str | Path, page_num: int = 0, year: int = 2025) -> l
             print(f"❌  No tables found on page {page_label}")
             return []
 
-        table = tables[0]  # Main table
+        # Find the largest table (by row count) - handles PDFs with header tables
+        table = max(tables, key=lambda t: len(t) if t else 0)
         print(f"  Page {page_label}: Table has {len(table)} rows × {len(table[0])} columns")
 
         # Skip header rows (first 3 rows typically: title, category, gender, First/Last)

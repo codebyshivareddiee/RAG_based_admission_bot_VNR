@@ -6,12 +6,33 @@ This module NEVER approximates.  If data is missing it says so.
 
 from __future__ import annotations
 
+import logging
+import sys
+import traceback
+
+logger = logging.getLogger("app.logic.cutoff_engine")
+logger.info("cutoff_engine.py: starting imports...")
+
 from dataclasses import dataclass, field
 from typing import Optional
 
-from google.cloud.firestore_v1.base_query import FieldFilter
+logger.info("cutoff_engine.py: importing google.cloud.firestore_v1...")
+try:
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    logger.info("cutoff_engine.py: google.cloud.firestore_v1 OK")
+except Exception as e:
+    logger.error(f"cutoff_engine.py: FAILED google.cloud.firestore_v1: {e}")
+    traceback.print_exc()
+    raise
 
-from app.data.init_db import get_db, COLLECTION
+logger.info("cutoff_engine.py: importing init_db...")
+try:
+    from app.data.init_db import get_db, COLLECTION
+    logger.info("cutoff_engine.py: init_db OK")
+except Exception as e:
+    logger.error(f"cutoff_engine.py: FAILED init_db: {e}")
+    traceback.print_exc()
+    raise
 
 
 @dataclass
@@ -163,6 +184,26 @@ def get_cutoff(
     docs = query.stream()
     rows = [doc.to_dict() for doc in docs]
 
+    # Also check with 'caste' field for older EWS records that use that name
+    if not rows or category == "EWS":
+        alt_query = db.collection(COLLECTION)
+        alt_query = alt_query.where(filter=FieldFilter("branch", "==", branch))
+        alt_query = alt_query.where(filter=FieldFilter("caste", "==", category))
+        alt_query = alt_query.where(filter=FieldFilter("gender", "==", gender))
+        alt_query = alt_query.where(filter=FieldFilter("quota", "==", quota))
+        if year:
+            alt_query = alt_query.where(filter=FieldFilter("year", "==", year))
+        alt_docs = alt_query.stream()
+        for doc in alt_docs:
+            d = doc.to_dict()
+            # Normalize: map old field names to new ones
+            if "caste" in d and "category" not in d:
+                d["category"] = d["caste"]
+            if "cutoff_rank" not in d:
+                d["cutoff_rank"] = d.get("last_rank") or d.get("first_rank")
+            if d.get("cutoff_rank") is not None:
+                rows.append(d)
+
     # Sort: latest year first, then latest round
     rows.sort(key=lambda r: (r.get("year", 0), r.get("round", 0)), reverse=True)
 
@@ -182,20 +223,74 @@ def get_cutoff(
 
     best = rows[0]
 
-    return CutoffResult(
-        cutoff_rank=best["cutoff_rank"],
-        branch=best["branch"],
-        category=best["category"],
-        year=best["year"],
-        round=best["round"],
-        gender=best["gender"],
-        quota=best["quota"],
-        message=(
+    # If no specific year requested, show ALL available years
+    if not year and len(set(r.get("year") for r in rows)) > 1:
+        # Group by year and build a year-wise comparison
+        years_seen = {}
+        for r in rows:
+            y = r.get("year")
+            if y and y not in years_seen:
+                years_seen[y] = r
+        sorted_years = sorted(years_seen.keys())
+
+        year_lines = []
+        ranks_list = []
+        for y in sorted_years:
+            r = years_seen[y]
+            rank = r.get("cutoff_rank", 0)
+            year_lines.append(f"• **{y}**: Closing rank **{rank:,}**")
+            ranks_list.append(rank)
+
+        # Analyze trend
+        trend_analysis = ""
+        if len(ranks_list) >= 2:
+            first_rank = ranks_list[0]
+            last_rank = ranks_list[-1]
+            diff = last_rank - first_rank
+            pct_change = (diff / first_rank * 100) if first_rank > 0 else 0
+            
+            if abs(pct_change) < 5:
+                trend_analysis = (
+                    f"\n\n📊 **Trend Analysis:** The cutoff has remained relatively stable over the years "
+                    f"(~{abs(pct_change):.1f}% change). This branch maintains consistent demand."
+                )
+            elif diff < 0:  # Rank decreased (became more competitive)
+                trend_analysis = (
+                    f"\n\n📊 **Trend Analysis:** The cutoff rank has **decreased by {abs(pct_change):.1f}%** "
+                    f"from {sorted_years[0]} to {sorted_years[-1]}, indicating **rising competition**. "
+                    f"The branch is becoming more sought-after. Plan accordingly and consider backup options."
+                )
+            else:  # Rank increased (became less competitive)
+                trend_analysis = (
+                    f"\n\n📊 **Trend Analysis:** The cutoff rank has **increased by {pct_change:.1f}%** "
+                    f"from {sorted_years[0]} to {sorted_years[-1]}, indicating **improving chances**. "
+                    f"Competition has eased slightly, making admission more accessible than before."
+                )
+
+        message = (
+            f"Here are the cutoff ranks for **{branch}** under **{category}** "
+            f"category ({gender}, {quota} quota) across all available years:\n\n"
+            + "\n".join(year_lines)
+            + trend_analysis
+            + "\n\n⚠️ _These are based on previous year data and cutoffs may vary._"
+        )
+    else:
+        message = (
             f"The closing cutoff rank for {best['branch']} under {best['category']} "
-            f"category in Year {best['year']}, Round {best['round']} "
+            f"category in Year {best['year']}, Round {best.get('round', 1)} "
             f"({best['quota']} quota) was **{best['cutoff_rank']:,}**.\n\n"
             f"⚠️ _This is based on previous year data and cutoffs may vary this year._"
-        ),
+        )
+
+    return CutoffResult(
+        cutoff_rank=best["cutoff_rank"],
+        branch=best.get("branch", branch),
+        category=best.get("category", category),
+        year=best.get("year"),
+        round=best.get("round"),
+        gender=best.get("gender", gender),
+        quota=best.get("quota", quota),
+        message=message,
         all_results=rows,
     )
 

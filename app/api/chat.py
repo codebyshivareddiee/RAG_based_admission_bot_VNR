@@ -11,35 +11,80 @@ from __future__ import annotations
 
 import logging
 import re
+import sys
 import time
+import traceback
 import uuid
 from collections import defaultdict
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+logger.info("chat.py: starting imports...")
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
-from openai import OpenAI
+try:
+    from fastapi import APIRouter, HTTPException, Request
+    from pydantic import BaseModel, Field
+    from openai import OpenAI
+    logger.info("chat.py: FastAPI/Pydantic/OpenAI imports OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED FastAPI/Pydantic/OpenAI imports: {e}")
+    traceback.print_exc()
+    raise
 
-from app.config import get_settings
-from app.classifier.intent_classifier import IntentType, classify
-from app.logic.cutoff_engine import (
-    check_eligibility,
-    get_cutoff,
-    get_all_cutoffs_for_branch,
-    list_branches,
-)
-from app.rag.retriever import retrieve
-from app.utils.validators import (
-    extract_branch,
-    extract_branches,
-    extract_category,
-    extract_gender,
-    extract_rank,
-    extract_year,
-    sanitise_input,
-)
+try:
+    from app.config import get_settings
+    logger.info("chat.py: app.config OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED app.config: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from app.classifier.intent_classifier import IntentType, classify
+    logger.info("chat.py: intent_classifier OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED intent_classifier: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from app.logic.cutoff_engine import (
+        check_eligibility,
+        get_cutoff,
+        get_all_cutoffs_for_branch,
+        list_branches,
+    )
+    logger.info("chat.py: cutoff_engine OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED cutoff_engine: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from app.rag.retriever import retrieve
+    logger.info("chat.py: retriever OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED retriever: {e}")
+    traceback.print_exc()
+    raise
+
+try:
+    from app.utils.validators import (
+        extract_branch,
+        extract_branches,
+        extract_category,
+        extract_gender,
+        extract_rank,
+        extract_year,
+        sanitise_input,
+    )
+    logger.info("chat.py: validators OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED validators: {e}")
+    traceback.print_exc()
+    raise
+
+logger.info("chat.py: all imports succeeded")
 
 settings = get_settings()
 router = APIRouter()
@@ -57,6 +102,15 @@ _session_pending_intent: dict[str, str] = {}  # tracks if we asked for cutoff de
 # Keys: branch, category, gender, rank
 _session_cutoff_data: dict[str, dict] = {}
 
+# Stores the last successfully completed cutoff query details per session
+# Used to offer reuse when user switches from cutoff to eligibility
+_session_last_cutoff: dict[str, dict] = {}
+
+# ── Contact request collection state (per-session) ────────
+# Stores partially collected contact fields when user requests callback
+# Keys: name, email, phone, programme, query_type, message
+_session_contact_data: dict[str, dict] = {}
+
 # Cutoff flow: only needs branch, category, gender (shows cutoff ranks)
 _CUTOFF_QUESTIONS = [
     ("branch", "Which **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branches}"),
@@ -70,6 +124,15 @@ _ELIGIBILITY_QUESTIONS = [
     ("category", "What is your **category / caste**?\n\n(e.g., OC, BC-A, BC-B, BC-C, BC-D, SC, ST, EWS)"),
     ("gender", "Are you a **Boy** or a **Girl**?"),
     ("rank", "What is your **EAPCET rank**?"),
+]
+
+# Contact request flow: collects user details for admission team callback
+_CONTACT_QUESTIONS = [
+    ("name", "I'd be happy to connect you with our admission team! 😊\n\nMay I have your **full name**?"),
+    ("email", "Thank you, {name}! 👋\n\nWhat's your **email address**?"),
+    ("phone", "Great! What's your **phone number**? 📞"),
+    ("programme", "What programme are you interested in?\n\n1️⃣ **B.Tech** (Bachelor of Technology)\n2️⃣ **M.Tech** (Master of Technology)\n3️⃣ **MCA** (Master of Computer Applications)\n\nReply with the number or name."),
+    ("query_type", "Thank you! What is this regarding?\n\n1️⃣ Report fraud / unauthorized agent\n2️⃣ General admission inquiry\n3️⃣ Not satisfied with chatbot response\n4️⃣ Other\n\nReply with the number or description."),
 ]
 
 def _check_rate_limit(ip: str) -> None:
@@ -242,6 +305,170 @@ async def chat(req: ChatRequest, request: Request):
     if not user_msg:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    # ── Check if session is in contact collection mode ────────
+    if session_id in _session_contact_data:
+        collected = _session_contact_data[session_id]
+        waiting_for = collected.get("_waiting_for")
+        
+        # Extract and validate the user's input based on what we're waiting for
+        if waiting_for == "name":
+            # Accept any non-empty text as name
+            name = user_msg.strip()
+            if len(name) < 2:
+                ask = "Please provide your **full name** (at least 2 characters)."
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            collected["name"] = name
+        
+        elif waiting_for == "email":
+            # Basic email validation
+            email = user_msg.strip()
+            if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+                ask = "That doesn't look like a valid email address. Please enter your **email** (e.g., student@example.com)."
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            collected["email"] = email
+        
+        elif waiting_for == "phone":
+            # Extract phone number (10 digits)
+            phone_match = re.search(r"\b(\d{10})\b", user_msg)
+            if not phone_match:
+                ask = "Please provide a valid **10-digit phone number** (e.g., 9876543210)."
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            collected["phone"] = phone_match.group(1)
+        
+        elif waiting_for == "programme":
+            # Parse programme choice
+            msg_lower = user_msg.lower().strip()
+            programme = None
+            if '1' in msg_lower or 'b.tech' in msg_lower or 'btech' in msg_lower or 'bachelor' in msg_lower:
+                programme = "B.Tech"
+            elif '2' in msg_lower or 'm.tech' in msg_lower or 'mtech' in msg_lower or 'master' in msg_lower:
+                programme = "M.Tech"
+            elif '3' in msg_lower or 'mca' in msg_lower:
+                programme = "MCA"
+            
+            if not programme:
+                ask = "Please choose a programme:\n\n1️⃣ B.Tech\n2️⃣ M.Tech\n3️⃣ MCA\n\nReply with the number (1, 2, or 3)."
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            collected["programme"] = programme
+        
+        elif waiting_for == "query_type":
+            # Parse query type
+            msg_lower = user_msg.lower().strip()
+            query_type = None
+            if '1' in msg_lower or 'fraud' in msg_lower or 'agent' in msg_lower or 'scam' in msg_lower:
+                query_type = "fraud_report"
+            elif '2' in msg_lower or 'general' in msg_lower or 'inquiry' in msg_lower or 'admission' in msg_lower:
+                query_type = "general_inquiry"
+            elif '3' in msg_lower or 'not satisfied' in msg_lower or 'dissatisfied' in msg_lower or 'chatbot' in msg_lower:
+                query_type = "dissatisfied"
+            elif '4' in msg_lower or 'other' in msg_lower:
+                query_type = "other"
+            
+            if not query_type:
+                ask = "Please choose an option:\n\n1️⃣ Report fraud\n2️⃣ General inquiry\n3️⃣ Not satisfied with chatbot\n4️⃣ Other\n\nReply with the number (1-4)."
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            collected["query_type"] = query_type
+        
+        elif waiting_for == "message":
+            # Optional message - accept anything
+            if len(user_msg.strip()) > 0:
+                collected["message"] = user_msg.strip()
+            else:
+                collected["message"] = None
+        
+        # Check what's still missing and ask the next question
+        for field, question_template in _CONTACT_QUESTIONS:
+            if field not in collected or collected[field] is None:
+                collected["_waiting_for"] = field
+                # Format question with collected data if needed
+                if "{name}" in question_template:
+                    ask = question_template.format(name=collected.get("name", "there"))
+                else:
+                    ask = question_template
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+        
+        # All required fields collected! Ask for optional message
+        if "message" not in collected:
+            collected["_waiting_for"] = "message"
+            ask = "Almost done! Would you like to add any **additional message** or details?\n\n(Or reply **skip** to submit now)"
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": ask})
+            return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+        
+        # Handle skip for message
+        if collected.get("_waiting_for") == "message" and user_msg.lower().strip() == "skip":
+            collected["message"] = None
+        
+        # Everything collected - save to Google Sheets
+        try:
+            from app.logic.google_sheets_service import save_contact_to_sheets
+            
+            success, ref_id = await save_contact_to_sheets(
+                name=collected["name"],
+                email=collected["email"],
+                phone=collected["phone"],
+                programme=collected["programme"],
+                query_type=collected["query_type"],
+                message=collected.get("message")
+            )
+            
+            if success:
+                # Show privacy note for phone number
+                phone_note = ""
+                if collected["query_type"] not in ["fraud_report", "general_inquiry"]:
+                    phone_note = "\n\n🔒 **Note:** Your phone number is kept private and will not be shared with the admission team for this request type."
+                
+                reply = (
+                    f"✅ **Request Submitted Successfully**\n\n"
+                    f"Thank you, **{collected['name']}**! Our admission team has received your request.\n\n"
+                    f"**Contact Details:**\n"
+                    f"📧 {collected['email']}\n"
+                    f"📞 {collected['phone']}\n"
+                    f"🎓 Programme: {collected['programme']}\n\n"
+                    f"**What's next:**\n"
+                    f"Our team will reach out to you within **24 hours**.\n\n"
+                    f"**Reference ID:** `{ref_id}`{phone_note}"
+                )
+            else:
+                reply = (
+                    "⚠️ There was an issue submitting your request. "
+                    "Please contact our admission team directly:\n\n"
+                    "📧 admissions@vnrvjiet.ac.in\n"
+                    "📞 +91-40-2304 2758"
+                )
+            
+            # Clean up session state
+            del _session_contact_data[session_id]
+            
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": reply})
+            return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
+        
+        except Exception as e:
+            logger.error(f"Failed to save contact request: {e}", exc_info=True)
+            reply = (
+                "⚠️ There was an error processing your request. "
+                "Please contact our admission team directly:\n\n"
+                "📧 admissions@vnrvjiet.ac.in\n"
+                "📞 +91-40-2304 2758"
+            )
+            del _session_contact_data[session_id]
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": reply})
+            return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
+
     # ── Check if session is in cutoff collection mode ─────────
     if session_id in _session_cutoff_data:
         # We're collecting cutoff details step by step
@@ -250,6 +477,60 @@ async def chat(req: ChatRequest, request: Request):
         flow = collected.get("_flow", "cutoff")  # "cutoff" or "eligibility"
         questions = _ELIGIBILITY_QUESTIONS if flow == "eligibility" else _CUTOFF_QUESTIONS
 
+        # Handle reuse confirmation
+        if waiting_for == "_confirm_reuse":
+            response = user_msg.strip().lower()
+            if response in ("yes", "y", "yeah", "yep", "sure", "ok", "okay"):
+                # User confirmed reuse - copy data
+                reuse_data = collected.get("_reuse_data", {})
+                collected["branch"] = reuse_data.get("branch")
+                collected["category"] = reuse_data.get("category")
+                collected["gender"] = reuse_data.get("gender")
+                
+                # Check if rank was already extracted from previous message
+                extracted_rank = collected.get("_extracted_rank")
+                if extracted_rank:
+                    # We have everything - complete the eligibility check
+                    del _session_cutoff_data[session_id]
+                    _session_pending_intent.pop(session_id, None)
+                    
+                    branches_list = collected["branch"]
+                    if isinstance(branches_list, str):
+                        branches_list = [branches_list]
+                    
+                    reply = _build_multi_branch_reply(
+                        branches_list, 
+                        collected["category"], 
+                        collected["gender"], 
+                        extracted_rank
+                    )
+                    
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": reply})
+                    return ChatResponse(
+                        reply=reply, intent="eligibility", session_id=session_id,
+                        sources=["VNRVJIET Cutoff Database"],
+                    )
+                else:
+                    # Still need to ask for rank
+                    collected["_waiting_for"] = "rank"
+                    ask = "Great! What is your **EAPCET rank**?"
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
+            else:
+                # User wants different details - start fresh
+                collected.clear()
+                collected["_flow"] = "eligibility"
+                collected["_waiting_for"] = "branch"
+                
+                avail_branches = list_branches()
+                branch_list = ", ".join(avail_branches)
+                ask = f"Sure! Let me help you check your eligibility.\n\nWhich **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branch_list}"
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
+        
         # Try to extract what we asked for from the user's reply
         if waiting_for == "branch":
             vals = extract_branches(user_msg)
@@ -335,6 +616,15 @@ async def chat(req: ChatRequest, request: Request):
             branches_list = [branches_list]
         category = collected["category"]
         gender = collected["gender"]
+        
+        # Save this cutoff query for potential reuse in eligibility check
+        if not collected.get("rank"):
+            _session_last_cutoff[session_id] = {
+                "branch": branches_list,
+                "category": category,
+                "gender": gender,
+            }
+        
         del _session_cutoff_data[session_id]
         _session_pending_intent.pop(session_id, None)
 
@@ -351,6 +641,25 @@ async def chat(req: ChatRequest, request: Request):
             reply=reply, intent="cutoff", session_id=session_id,
             sources=["VNRVJIET Cutoff Database"],
         )
+
+    # ── Check for contact request keywords ───────────────────
+    contact_keywords = [
+        "talk to admission", "speak with admission", "speak to someone", "talk to someone",
+        "contact admission", "call me", "callback", "call back", "reach out",
+        "not satisfied", "dissatisfied", "want to speak", "want to talk",
+        "admission department", "admission team", "admission office"
+    ]
+    
+    msg_lower = user_msg.lower()
+    is_contact_request = any(keyword in msg_lower for keyword in contact_keywords)
+    
+    if is_contact_request and session_id not in _session_contact_data:
+        # Start contact collection flow
+        _session_contact_data[session_id] = {"_waiting_for": "name"}
+        ask = _CONTACT_QUESTIONS[0][1]  # First question (name)
+        _session_history[session_id].append({"role": "user", "content": user_msg})
+        _session_history[session_id].append({"role": "assistant", "content": ask})
+        return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
 
     # Classify
     classification = classify(user_msg)
@@ -428,6 +737,30 @@ async def chat(req: ChatRequest, request: Request):
             cutoff_info = _build_multi_branch_reply(b_list, category, gender, rank if is_eligibility else None)
             sources.append("VNRVJIET Cutoff Database")
         else:
+            # Check if we can reuse recent cutoff data for eligibility query
+            if is_eligibility and session_id in _session_last_cutoff and "branch" not in collected:
+                last = _session_last_cutoff[session_id]
+                branch_str = ", ".join(last["branch"]) if isinstance(last["branch"], list) else last["branch"]
+                
+                # Check if rank was already provided in this message
+                has_rank_now = "rank" in collected
+                
+                # Ask user if they want to reuse previous details
+                collected["_waiting_for"] = "_confirm_reuse"
+                collected["_reuse_data"] = last
+                if has_rank_now:
+                    collected["_extracted_rank"] = collected["rank"]
+                _session_cutoff_data[session_id] = collected
+                
+                ask = (
+                    f"I see you just asked about **{branch_str}** / **{last['category']}** category / **{last['gender']}**. "
+                    f"Would you like me to check eligibility for the same?\n\n"
+                    f"Reply **YES** to use these details, or provide new branch/category/gender."
+                )
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent=intent.value, session_id=session_id)
+            
             # Start step-by-step collection
             for field, question_template in questions:
                 if field not in collected:

@@ -20,6 +20,7 @@
   const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
+  const inputArea = document.getElementById("chat-input-area");
   let typingEl = null;
 
   // ── State ────────────────────────────────────────────────────
@@ -77,31 +78,143 @@
     toggleBtn.classList.toggle("open", isOpen);
 
     if (isOpen) {
-      inputEl.focus();
       // Show welcome if first time
       if (messagesEl.children.length === 0) {
         showWelcome();
       }
+      // Only focus input if it's visible
+      if (inputArea.style.display !== "none") {
+        inputEl.focus();
+      }
     }
   }
+
+  // ── Category definitions with follow-up questions ──────────
+  const CATEGORIES = {
+    "Admission Process & Eligibility": [
+      "What is the admission process?",
+      "Am I eligible for admission?",
+      "What exams are accepted?",
+      "What is the selection criteria?",
+    ],
+    "Branch-wise Cutoff Ranks": [
+      "CSE cutoff for OC category?",
+      "ECE cutoff for BC-B category?",
+      "What was last year's closing rank?",
+      "Cutoff for management quota?",
+    ],
+    "Required Documents": [
+      "Documents required for admission?",
+      "Is migration certificate needed?",
+      "Documents for fee payment?",
+      "What ID proofs are required?",
+    ],
+    "Fee Structure & Scholarships": [
+      "What is the fee structure?",
+      "Are there any scholarships?",
+      "Is fee payment in installments?",
+      "Scholarship for SC/ST students?",
+    ],
+    "Others": [
+      "Hostel & accommodation details?",
+      "Placement & internship info?",
+      "Campus facilities & labs?",
+      "NRI / Management quota process?",
+      "Talk to admission department",
+    ],
+  };
 
   function showWelcome() {
     addBotMessage(
       `Hello! 👋 Welcome to the **${COLLEGE}** admissions assistant.\n\n` +
-        "I can help you with:\n" +
-        "• Admission process & eligibility\n" +
-        "• Branch-wise cutoff ranks\n" +
-        "• Required documents\n" +
-        "• Fee structure & scholarships\n\n" +
-        "How can I assist you today?"
+        "I can help you with the following topics. Please select one:"
     );
 
-    // Quick reply chips
-    addQuickReplies([
-      "What is the admission process?",
-      "CSE cutoff for OC category?",
-      "Documents required?",
-    ]);
+    // Show category buttons + Others
+    addCategoryButtons();
+  }
+
+  /** Render main category buttons + "Others" */
+  function addCategoryButtons() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+
+    const grid = document.createElement("div");
+    grid.className = "category-buttons";
+
+    const icons = [
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></svg>',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v2m0 8v2"/></svg>',
+    ];
+    // Only show the first 4 categories as grid buttons (not "Others")
+    const cats = Object.keys(CATEGORIES).filter(c => c !== "Others");
+
+    cats.forEach((cat, i) => {
+      const btn = document.createElement("button");
+      btn.className = "category-btn";
+      btn.innerHTML = `<span class="cat-icon">${icons[i]}</span><span class="cat-label">${cat}</span>`;
+      btn.addEventListener("click", () => {
+        wrapper.remove();
+        addUserMessage(cat);
+        addBotMessage(`Here are some questions about **${cat}**. Pick one or type your own:`);
+        showInputArea();
+        addFollowUpButtons(CATEGORIES[cat], cat);
+      });
+      grid.appendChild(btn);
+    });
+
+    // "Others" button – shows follow-up options + open typing
+    const othersBtn = document.createElement("button");
+    othersBtn.className = "category-btn others-btn";
+    othersBtn.innerHTML = `<span class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span><span class="cat-label">Others</span>`;
+    othersBtn.addEventListener("click", () => {
+      wrapper.remove();
+      addUserMessage("Others");
+      addBotMessage("Here are some common topics, or feel free to type your own question:");
+      showInputArea();
+      addFollowUpButtons(CATEGORIES["Others"], "Others");
+    });
+    grid.appendChild(othersBtn);
+
+    wrapper.appendChild(grid);
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
+  }
+
+  /** Render follow-up question buttons for a category */
+  function addFollowUpButtons(questions, category) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+
+    const qr = document.createElement("div");
+    qr.className = "followup-buttons";
+
+    questions.forEach((q) => {
+      const btn = document.createElement("button");
+      btn.textContent = q;
+      btn.addEventListener("click", () => {
+        wrapper.remove();
+        sendMessage(q);
+      });
+      qr.appendChild(btn);
+    });
+
+    // "Type my own" option
+    const customBtn = document.createElement("button");
+    customBtn.className = "custom-btn";
+    customBtn.textContent = "✏️ Type my own question";
+    customBtn.addEventListener("click", () => {
+      wrapper.remove();
+      addBotMessage(`Sure, type your question about **${category}** below:`);
+      inputEl.focus();
+    });
+    qr.appendChild(customBtn);
+
+    wrapper.appendChild(qr);
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
   }
 
   function addMessage(text, sender) {
@@ -173,6 +286,11 @@
       typingEl.remove();
       typingEl = null;
     }
+  }
+
+  /** Show the input area (hidden until user picks a category) */
+  function showInputArea() {
+    inputArea.style.display = "";
   }
 
   function scrollToBottom() {

@@ -11,3 +11,8 @@ dist/
 .mypy_cache/
 .pytest_cache/
 firebase-service-account.json
+
+# Google Sheets service account credentials
+google-service-account.json
+google-credentials.json
+*service-account*.json

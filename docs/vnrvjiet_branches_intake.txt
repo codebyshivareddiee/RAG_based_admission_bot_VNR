@@ -1,0 +1,398 @@
+VNR VIGNANA JYOTHI INSTITUTE OF ENGINEERING AND TECHNOLOGY
+B.Tech Programmes and Intake Capacity
+Source: https://vnrvjiet.ac.in/admission/
+
+VNRVJIET offers 17 B.Tech programmes across various engineering disciplines:
+
+1. ARTIFICIAL INTELLIGENCE AND DATA SCIENCE (AID)
+   - Year Established: 2021
+   - Intake Capacity: 60 seats
+   - Branch Code: AID
+   - Full Name: Artificial Intelligence and Data Science
+
+2. AUTOMOBILE ENGINEERING (AUT)
+   - Year Established: 2010
+   - Intake Capacity: 60 seats
+   - Branch Code: AUT
+   - Full Name: Automobile Engineering
+
+3. BIOTECHNOLOGY (BIO)
+   - Year Established: 2025
+   - Intake Capacity: 60 seats
+   - Branch Code: BIO
+   - Full Name: Biotechnology
+
+4. CIVIL ENGINEERING (CIV)
+   - Year Established: 2001
+   - Intake Capacity: 120 seats
+   - Branch Code: CIV
+   - Full Name: Civil Engineering
+
+5. COMPUTER SCIENCE AND BUSINESS SYSTEMS (CSB)
+   - Year Established: 2019
+   - Intake Capacity: 60 seats
+   - Branch Code: CSB
+   - Full Name: Computer Science and Business Systems
+
+6. COMPUTER SCIENCE AND ENGINEERING (CSE)
+   - Year Established: 1995
+   - Intake Capacity: 240 seats
+   - Branch Code: CSE
+   - Full Name: Computer Science and Engineering
+   - Note: This is one of the oldest and largest programmes at VNRVJIET
+
+7. CSE (ARTIFICIAL INTELLIGENCE AND MACHINE LEARNING) (CSE-CSM)
+   - Year Established: 2020
+   - Intake Capacity: 180 seats
+   - Branch Code: CSE-CSM
+   - Full Name: CSE (Artificial Intelligence and Machine Learning)
+   - Also known as: AI & ML, AIML
+
+8. CSE (CYBER SECURITY) (CSE-CSC)
+   - Year Established: 2020
+   - Intake Capacity: 120 seats
+   - Branch Code: CSE-CSC
+   - Full Name: CSE (Cyber Security)
+
+9. CSE (DATA SCIENCE) (CSE-CSD)
+   - Year Established: 2020
+   - Intake Capacity: 180 seats
+   - Branch Code: CSE-CSD
+   - Full Name: CSE (Data Science)
+
+10. CSE (INTERNET OF THINGS) (CSE-CSO)
+    - Year Established: 2020
+    - Intake Capacity: 60 seats
+    - Branch Code: CSE-CSO
+    - Full Name: CSE (Internet of Things)
+    - Also known as: IoT
+
+11. ELECTRICAL AND ELECTRONICS ENGINEERING (EEE)
+    - Year Established: 1995
+    - Intake Capacity: 120 seats
+    - Branch Code: EEE
+    - Full Name: Electrical and Electronics Engineering
+    - Note: This is one of the oldest programmes at VNRVJIET
+
+12. ELECTRONICS & INSTRUMENTATION ENGINEERING (EIE)
+    - Year Established: 1999
+    - Intake Capacity: 120 seats
+    - Branch Code: EIE
+    - Full Name: Electronics & Instrumentation Engineering
+
+13. ELECTRONICS AND COMMUNICATION ENGINEERING (ECE)
+    - Year Established: 1995
+    - Intake Capacity: 240 seats
+    - Branch Code: ECE
+    - Full Name: Electronics and Communication Engineering
+    - Note: This is one of the oldest and largest programmes at VNRVJIET
+
+14. ELECTRONICS ENGINEERING (VLSI DESIGN AND TECHNOLOGY) (VLSI)
+    - Year Established: 2025
+    - Intake Capacity: 60 seats
+    - Branch Code: VLSI
+    - Full Name: Electronics Engineering (VLSI Design and Technology)
+
+15. INFORMATION TECHNOLOGY (IT)
+    - Year Established: 1997
+    - Intake Capacity: 180 seats
+    - Branch Code: IT
+    - Full Name: Information Technology
+
+16. MECHANICAL ENGINEERING (ME)
+    - Year Established: 1995
+    - Intake Capacity: 120 seats
+    - Branch Code: ME
+    - Full Name: Mechanical Engineering
+    - Also known as: MECH
+    - Note: This is one of the oldest programmes at VNRVJIET
+
+17. ROBOTICS AND ARTIFICIAL INTELLIGENCE (RAI)
+    - Year Established: 2025
+    - Intake Capacity: 60 seats
+    - Branch Code: RAI
+    - Full Name: Robotics and Artificial Intelligence
+
+TOTAL INTAKE CAPACITY: 2,040 seats across all B.Tech programmes
+
+BRANCH CATEGORIES:
+
+Core Engineering Branches (Established 1995-2001):
+- Computer Science and Engineering (CSE) - 240 seats
+- Electronics and Communication Engineering (ECE) - 240 seats
+- Electrical and Electronics Engineering (EEE) - 120 seats
+- Mechanical Engineering (ME) - 120 seats
+- Civil Engineering (CIV) - 120 seats
+- Information Technology (IT) - 180 seats
+
+Computer Science Specializations (Established 2019-2020):
+- CSE (Artificial Intelligence and Machine Learning) - 180 seats
+- CSE (Data Science) - 180 seats
+- CSE (Cyber Security) - 120 seats
+- CSE (Internet of Things) - 60 seats
+- Computer Science and Business Systems - 60 seats
+
+Emerging Technologies (Established 2021-2025):
+- Artificial Intelligence and Data Science (AID) - 60 seats
+- Biotechnology (BIO) - 60 seats
+- Electronics Engineering (VLSI Design and Technology) - 60 seats
+- Robotics and Artificial Intelligence (RAI) - 60 seats
+
+Specialized Engineering (Established 1999-2010):
+- Electronics & Instrumentation Engineering (EIE) - 120 seats
+- Automobile Engineering (AUT) - 60 seats
+
+OLDEST PROGRAMMES (Established 1995):
+The following branches were established when VNRVJIET started in 1995:
+- Computer Science and Engineering (CSE)
+- Electronics and Communication Engineering (ECE)
+- Electrical and Electronics Engineering (EEE)
+- Mechanical Engineering (ME)
+
+NEWEST PROGRAMMES (Established 2025):
+The following branches were recently introduced in 2025:
+- Biotechnology (BIO)
+- Electronics Engineering (VLSI Design and Technology) (VLSI)
+- Robotics and Artificial Intelligence (RAI)
+
+POPULAR BRANCHES WITH HIGH INTAKE:
+- Computer Science and Engineering (CSE): 240 seats
+- Electronics and Communication Engineering (ECE): 240 seats
+- CSE (Artificial Intelligence and Machine Learning): 180 seats
+- CSE (Data Science): 180 seats
+- Information Technology (IT): 180 seats
+
+For detailed information about course curriculum, faculty, facilities, and placement records for each branch, visit: https://vnrvjiet.ac.in/admission/
+
+================================================================================
+M.TECH PROGRAMMES OFFERED AT VNRVJIET
+================================================================================
+
+VNRVJIET offers 14 M.Tech (Master of Technology) specializations across various engineering disciplines:
+
+TOTAL M.TECH INTAKE CAPACITY: 162 seats
+
+COMPLETE LIST OF M.TECH PROGRAMMES:
+
+1. ADVANCED MANUFACTURING SYSTEMS (ME)
+   - Parent Department: Mechanical Engineering
+   - Year Established: 2003
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Advanced manufacturing technologies and systems
+
+2. COMPUTER NETWORKS & INFORMATION SECURITY (IT)
+   - Parent Department: Information Technology
+   - Year Established: 2013
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Network security, cryptography, information security
+
+3. CAD/CAM (ME)
+   - Full Name: Computer-Aided Design and Computer-Aided Manufacturing
+   - Parent Department: Mechanical Engineering
+   - Year Established: 2013
+   - Intake Capacity: 6 seats
+   - Specialization Focus: Design automation and manufacturing systems
+
+4. COMPUTER SCIENCE AND ENGINEERING (CSE)
+   - Parent Department: Computer Science and Engineering
+   - Year Established: 2014
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Advanced topics in computer science
+
+5. EMBEDDED SYSTEMS (ECE)
+   - Parent Department: Electronics and Communication Engineering
+   - Year Established: 2006
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Embedded hardware and software design
+
+6. ELECTRONICS & INSTRUMENTATION (EIE)
+   - Parent Department: Electronics & Instrumentation Engineering
+   - Year Established: 2011
+   - Intake Capacity: 6 seats
+   - Specialization Focus: Advanced instrumentation and control systems
+
+7. GEO-TECHNICAL ENGINEERING (CE)
+   - Parent Department: Civil Engineering
+   - Year Established: 2012
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Soil mechanics, foundation engineering
+
+8. HIGHWAY ENGINEERING (CE)
+   - Parent Department: Civil Engineering
+   - Year Established: 2012
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Road design, transportation engineering
+
+9. POWER ELECTRONICS (EEE)
+   - Parent Department: Electrical and Electronics Engineering
+   - Year Established: 2003
+   - Intake Capacity: 12 seats
+   - Specialization Focus: Power conversion and control systems
+
+10. POWER SYSTEMS (EEE)
+    - Parent Department: Electrical and Electronics Engineering
+    - Year Established: 2014
+    - Intake Capacity: 12 seats
+    - Specialization Focus: Power generation, transmission, distribution
+
+11. STRUCTURAL ENGINEERING (CE)
+    - Parent Department: Civil Engineering
+    - Year Established: 2010
+    - Intake Capacity: 18 seats (Highest intake in M.Tech)
+    - Specialization Focus: Structural analysis and design
+
+12. SOFTWARE ENGINEERING (CSE)
+    - Parent Department: Computer Science and Engineering
+    - Year Established: 2005
+    - Intake Capacity: 12 seats
+    - Specialization Focus: Software development methodologies and practices
+
+13. VLSI SYSTEMS DESIGN (ECE)
+    - Parent Department: Electronics and Communication Engineering
+    - Year Established: 2003
+    - Intake Capacity: 12 seats
+    - Specialization Focus: VLSI design, chip design
+
+14. ARTIFICIAL INTELLIGENCE & DATA SCIENCE (AIML)
+    - Parent Department: AI & Data Science
+    - Year Established: 2025 (NEW)
+    - Intake Capacity: 18 seats
+    - Specialization Focus: AI, machine learning, deep learning, data analytics
+
+15. DATA SCIENCE (DS)
+    - Parent Department: Computer Science
+    - Year Established: 2025 (NEW)
+    - Intake Capacity: 18 seats
+    - Specialization Focus: Big data, analytics, machine learning
+
+M.TECH PROGRAMMES BY DEPARTMENT:
+
+CIVIL ENGINEERING (CE) - 3 Specializations:
+- Geo-Technical Engineering (12 seats)
+- Highway Engineering (12 seats)
+- Structural Engineering (18 seats)
+Total CE M.Tech Seats: 42
+
+MECHANICAL ENGINEERING (ME) - 2 Specializations:
+- Advanced Manufacturing Systems (12 seats)
+- CAD/CAM (6 seats)
+Total ME M.Tech Seats: 18
+
+ELECTRICAL AND ELECTRONICS ENGINEERING (EEE) - 2 Specializations:
+- Power Electronics (12 seats)
+- Power Systems (12 seats)
+Total EEE M.Tech Seats: 24
+
+ELECTRONICS AND COMMUNICATION ENGINEERING (ECE) - 2 Specializations:
+- Embedded Systems (12 seats)
+- VLSI Systems Design (12 seats)
+Total ECE M.Tech Seats: 24
+
+COMPUTER SCIENCE AND ENGINEERING (CSE) - 2 Specializations:
+- Computer Science and Engineering (12 seats)
+- Software Engineering (12 seats)
+Total CSE M.Tech Seats: 24
+
+INFORMATION TECHNOLOGY (IT) - 1 Specialization:
+- Computer Networks & Information Security (12 seats)
+Total IT M.Tech Seats: 12
+
+ELECTRONICS & INSTRUMENTATION (EIE) - 1 Specialization:
+- Electronics & Instrumentation (6 seats)
+Total EIE M.Tech Seats: 6
+
+AI & DATA SCIENCE - 2 Specializations (NEW 2025):
+- Artificial Intelligence & Data Science (18 seats)
+- Data Science (18 seats)
+Total AI/DS M.Tech Seats: 36
+
+OLDEST M.TECH PROGRAMMES (Established 2003):
+- Advanced Manufacturing Systems (ME)
+- Power Electronics (EEE)
+- VLSI Systems Design (ECE)
+
+NEWEST M.TECH PROGRAMMES (Established 2025):
+- Artificial Intelligence & Data Science (AIML)
+- Data Science (DS)
+
+POPULAR M.TECH PROGRAMMES WITH HIGH INTAKE:
+- Structural Engineering (CE): 18 seats
+- Artificial Intelligence & Data Science: 18 seats
+- Data Science: 18 seats
+
+================================================================================
+MCA PROGRAMME (MASTER OF COMPUTER APPLICATIONS)
+================================================================================
+
+DURATION: 2 Years Full-Time
+
+DEPARTMENT: Information Technology (IT)
+
+YEAR ESTABLISHED: To be confirmed
+
+INTAKE CAPACITY: To be confirmed
+
+PROGRAMME OVERVIEW:
+The Department of Information Technology offers a 2-year postgraduate programme in Master of Computer Applications (MCA), designed to equip students with advanced knowledge and skills in computer science, software development, and information technology.
+
+MCA focuses on building problem-solving abilities, analytical thinking, and programming expertise, preparing students to work in diverse IT roles.
+
+KEY CURRICULUM AREAS:
+
+CORE PROGRAMMING CONCEPTS:
+- C, C++ Programming
+- Java Programming
+- Python Programming
+
+SOFTWARE DEVELOPMENT:
+- Software Engineering
+- Development Methodologies (Agile, DevOps)
+- Software Project Management
+
+DATABASE & SYSTEMS:
+- Database Management Systems (DBMS)
+- Computer Networks
+- Operating Systems
+
+WEB & CLOUD TECHNOLOGIES:
+- Web Technologies (HTML, CSS, JavaScript, Frameworks)
+- Cloud Computing (AWS, Azure, Google Cloud)
+- Web Services and APIs
+
+ALGORITHMS & DATA STRUCTURES:
+- Data Structures and Algorithms
+- Design and Analysis of Algorithms
+- Problem Solving Techniques
+
+EMERGING TECHNOLOGIES:
+- Artificial Intelligence
+- Machine Learning
+- Big Data Analytics
+- Data Mining
+
+PRACTICAL TRAINING:
+- Project Work (Industry-oriented)
+- Internships (Hands-on experience)
+- Live Projects
+- Industry Collaborations
+
+CAREER OPPORTUNITIES:
+MCA graduates are prepared for diverse IT roles including:
+- Software Developer/Engineer
+- Full Stack Developer
+- Data Analyst
+- Database Administrator
+- System Analyst
+- Cloud Engineer
+- ML Engineer
+- IT Consultant
+- Mobile App Developer
+- Web Developer
+
+================================================================================
+
+POSTGRADUATE PROGRAMMES SUMMARY:
+- M.Tech: 14 specializations, 162 total seats
+- MCA: 2-year programme in Computer Applications
+
+For detailed information about M.Tech and MCA admission process, eligibility criteria, curriculum, faculty, and placement records, visit: https://vnrvjiet.ac.in/admission/
