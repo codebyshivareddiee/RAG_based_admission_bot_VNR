@@ -84,6 +84,19 @@ except Exception as e:
     traceback.print_exc()
     raise
 
+try:
+    from app.utils.token_manager import (
+        trim_history_smart,
+        log_token_usage,
+        count_messages_tokens,
+        should_warn,
+    )
+    logger.info("chat.py: token_manager OK")
+except Exception as e:
+    logger.error(f"chat.py: FAILED token_manager: {e}")
+    traceback.print_exc()
+    raise
+
 logger.info("chat.py: all imports succeeded")
 
 settings = get_settings()
@@ -110,6 +123,10 @@ _session_last_cutoff: dict[str, dict] = {}
 # Stores partially collected contact fields when user requests callback
 # Keys: name, email, phone, programme, query_type, message
 _session_contact_data: dict[str, dict] = {}
+
+# ── Web search permission state (per-session) ─────────────
+# Stores query awaiting user permission to search website
+_session_pending_websearch: dict[str, str] = {}
 
 # Cutoff flow: only needs branch, category, gender (shows cutoff ranks)
 _CUTOFF_QUESTIONS = [
@@ -164,6 +181,151 @@ def _detect_trend_request(message: str) -> bool:
     ]
     msg_lower = message.lower()
     return any(keyword in msg_lower for keyword in trend_keywords)
+
+
+def _is_topic_change(message: str, current_flow: str = None) -> bool:
+    """
+    Detect if user is changing topic / wants to exit current collection flow.
+    Returns True if user is clearly asking about something else.
+    
+    Args:
+        message: User's message
+        current_flow: Current collection mode ("cutoff", "eligibility", "contact_request", or None)
+    """
+    msg_lower = message.lower().strip()
+    
+    # Explicit exit phrases
+    exit_phrases = [
+        "never mind", "nevermind", "forget it", "cancel", "stop",
+        "go back", "start over", "new question", "different question",
+        "something else", "change topic", "actually", "wait", "hold on"
+    ]
+    if any(phrase in msg_lower for phrase in exit_phrases):
+        return True
+    
+    # If in cutoff/eligibility flow, detect informational questions
+    if current_flow in ["cutoff", "eligibility"]:
+        info_keywords = [
+            "placement", "package", "salary", "company", "recruit",
+            "campus", "hostel", "mess", "accommodation", "facility",
+            "fee", "fees", "cost", "scholarship", "financial",
+            "faculty", "professor", "teacher", "staff",
+            "infrastructure", "library", "lab", "computer",
+            "sports", "club", "extra", "cultural", "event",
+            "location", "address", "how to reach", "transport",
+            "admission process", "how to apply", "application",
+            "document", "certificate", "eligibility criteria",
+            "lateral", "management", "nri", "seat", "quota"
+        ]
+        # If message has 3+ words and contains informational keywords, it's a topic change
+        word_count = len(msg_lower.split())
+        if word_count >= 3 and any(kw in msg_lower for kw in info_keywords):
+            return True
+    
+    # If in contact flow, detect cutoff/info questions
+    if current_flow == "contact_request":
+        cutoff_keywords = [
+            "cutoff", "cut-off", "rank", "eapcet", "eligible",
+            "admission", "seat", "can i get", "will i get"
+        ]
+        info_keywords = [
+            "placement", "fee", "campus", "hostel", "faculty",
+            "course", "branch", "program"
+        ]
+        if any(kw in msg_lower for kw in cutoff_keywords + info_keywords):
+            return True
+    
+    # Check if message is a full question (has question words + multiple words)
+    question_words = ["what", "when", "where", "how", "why", "which", "who", "tell me", "show me", "give me"]
+    word_count = len(msg_lower.split())
+    if word_count >= 4 and any(qw in msg_lower for qw in question_words):
+        return True
+    
+    return False
+
+
+def _detect_url_category(query: str) -> str:
+    """
+    Determine which website URL category to fetch based on query keywords.
+    Returns category key for VNRVJIET_WEBSITE_URLS dict.
+    """
+    query_lower = query.lower()
+    
+    # International admissions
+    if any(kw in query_lower for kw in ["international", "foreign", "nri", "overseas", "abroad student"]):
+        return "international_admissions"
+    
+    # Transport/bus
+    if any(kw in query_lower for kw in ["transport", "bus", "travel", "route", "vehicle", "commute"]):
+        return "transport"
+    
+    # Library
+    if any(kw in query_lower for kw in ["library", "book", "reading room", "digital library", "e-resource"]):
+        return "library"
+    
+    # Syllabus/books
+    if any(kw in query_lower for kw in ["syllabus", "curriculum", "textbook", "book download", "course material"]):
+        return "syllabus"
+    
+    # Academic calendar
+    if any(kw in query_lower for kw in ["calendar", "schedule", "academic year", "semester date", "exam date", "holiday"]):
+        return "academic_calendar"
+    
+    # Departments/exams
+    if any(kw in query_lower for kw in ["department", "examination", "exam", "branch", "faculty", "hod", "course structure"]):
+        return "departments"
+    
+    # Placement keywords
+    if any(kw in query_lower for kw in ["placement", "package", "salary", "company", "recruited", "job", "career", "training"]):
+        return "placements"
+    
+    # Scholarship
+    if any(kw in query_lower for kw in ["scholarship", "financial aid", "fee concession", "waiver", "reimbursement"]):
+        return "scholarship"
+    
+    # Fee keywords
+    if any(kw in query_lower for kw in ["fee", "cost", "tuition", "payment", "installment"]):
+        return "fees"
+    
+    # Hostel specific
+    if any(kw in query_lower for kw in ["hostel", "accommodation", "room", "boarding", "mess", "warden"]):
+        return "hostel"
+    
+    # Campus/facilities
+    if any(kw in query_lower for kw in ["campus", "facility", "infrastructure", "lab", "sports", "gym", "canteen"]):
+        return "campus"
+    
+    # About/general
+    if any(kw in query_lower for kw in ["about", "history", "established", "founder", "college info", "accreditation"]):
+        return "about"
+    
+    # Admissions (default for admission-related)
+    if any(kw in query_lower for kw in ["admission", "apply", "application", "eligibility", "document", "counselling", "seat"]):
+        return "admissions"
+    
+    # Default to general homepage
+    return "home"
+
+
+def _is_yes_response(message: str) -> bool:
+    """Check if message is a positive confirmation."""
+    msg_lower = message.lower().strip()
+    yes_patterns = [
+        "yes", "yeah", "yep", "sure", "ok", "okay", "fine",
+        "go ahead", "please", "do it", "search", "yes please",
+        "👍", "✓", "✔"
+    ]
+    return any(p in msg_lower for p in yes_patterns)
+
+
+def _is_no_response(message: str) -> bool:
+    """Check if message is a negative response."""
+    msg_lower = message.lower().strip()
+    no_patterns = [
+        "no", "nope", "nah", "don't", "dont", "not now",
+        "skip", "cancel", "never mind", "nevermind"
+    ]
+    return any(p in msg_lower for p in no_patterns)
 
 
 def _build_multi_branch_reply(
@@ -250,9 +412,19 @@ def _generate_llm_response(
     context: str = "",
     cutoff_info: str = "",
     history: list[dict] | None = None,
+    session_id: str = "unknown",
 ) -> str:
-    """Call OpenAI with the system prompt + history + context + user question."""
+    """
+    Call OpenAI with smart token management.
+    
+    Features:
+    - Token counting and monitoring
+    - Smart history trimming with summarization
+    - Automatic context truncation on overflow
+    - Warning logs when approaching limits
+    """
     system = _get_system_prompt()
+    client = _get_openai()
 
     user_content_parts = [f"User question: {user_message}"]
 
@@ -268,24 +440,81 @@ def _generate_llm_response(
             "in the system prompt, or state that the information is unavailable.]"
         )
 
-    messages: list[dict] = [{"role": "system", "content": system}]
+    user_content = "\n".join(user_content_parts)
 
-    # Add conversation history for continuity
+    # Smart history trimming with summarization
+    trimmed_history = []
     if history:
-        for h in history[-MAX_HISTORY:]:
-            messages.append({"role": h["role"], "content": h["content"]})
+        try:
+            trimmed_history = trim_history_smart(
+                history=history,
+                system_prompt=system,
+                user_message=user_content,
+                context=context,
+                cutoff_info=cutoff_info,
+                client=client,
+                model=settings.OPENAI_MODEL,
+            )
+        except Exception as e:
+            logger.error(f"Failed to trim history smartly: {e}. Using basic trimming.")
+            # Fallback to basic trimming
+            trimmed_history = history[-MAX_HISTORY:] if history else []
 
-    messages.append({"role": "user", "content": "\n".join(user_content_parts)})
+    # Build messages
+    messages: list[dict] = [{"role": "system", "content": system}]
+    messages.extend(trimmed_history)
+    messages.append({"role": "user", "content": user_content})
 
-    client = _get_openai()
-    response = client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
-        messages=messages,
-        temperature=0.3,
-        max_tokens=600,
-    )
+    # Log token usage
+    try:
+        log_token_usage(messages, settings.OPENAI_MODEL, session_id)
+    except Exception as e:
+        logger.warning(f"Failed to log token usage: {e}")
 
-    return response.choices[0].message.content.strip()
+    # Call OpenAI with error handling
+    try:
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=messages,
+            temperature=0.3,
+            max_tokens=600,
+        )
+        return response.choices[0].message.content.strip()
+    
+    except Exception as e:
+        error_str = str(e).lower()
+        
+        # Handle token limit errors
+        if "maximum context length" in error_str or "token" in error_str:
+            logger.error(
+                f"Token limit exceeded for session {session_id}. "
+                f"Attempting recovery with minimal context."
+            )
+            
+            # Emergency fallback: use only system prompt + current message
+            minimal_messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_message}  # No context
+            ]
+            
+            try:
+                response = client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    messages=minimal_messages,
+                    temperature=0.3,
+                    max_tokens=600,
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as e2:
+                logger.error(f"Recovery attempt failed: {e2}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Context too large. Please start a new conversation."
+                )
+        
+        # Re-raise other errors
+        logger.error(f"OpenAI API error: {e}")
+        raise
 
 
 # ── Greeting handler ──────────────────────────────────────────
@@ -327,349 +556,434 @@ async def chat(req: ChatRequest, request: Request):
     if not user_msg:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    # ── Check if pending web search permission ────────────────
+    if session_id in _session_pending_websearch:
+        original_query = _session_pending_websearch[session_id]
+        
+        if _is_yes_response(user_msg):
+            # User agreed - fetch website
+            del _session_pending_websearch[session_id]
+            
+            try:
+                # Determine which URL to fetch
+                url_category = _detect_url_category(original_query)
+                url_to_fetch = settings.VNRVJIET_WEBSITE_URLS.get(url_category, settings.VNRVJIET_WEBSITE_URLS["general"])
+                
+                logger.info(f"Fetching website for query '{original_query}': {url_to_fetch}")
+                
+                # Load and use fetch_webpage tool
+                from app.utils.web_fetcher import fetch_webpage_content
+                web_content = fetch_webpage_content(url_to_fetch)
+                
+                # Generate response using web content
+                history = _session_history.get(session_id, [])
+                reply = _generate_llm_response(
+                    original_query,
+                    web_content[:4000],  # Limit content to 4000 chars
+                    "",  # No cutoff info
+                    history=history,
+                    session_id=session_id
+                )
+                
+                _session_history[session_id].append({"role": "user", "content": original_query})
+                _session_history[session_id].append({"role": "assistant", "content": reply})
+                
+                return ChatResponse(
+                    reply=reply,
+                    intent="informational",
+                    session_id=session_id,
+                    sources=[f"VNRVJIET Website ({url_to_fetch})"],
+                )
+                
+            except Exception as e:
+                logger.error(f"Web fetch failed: {e}", exc_info=True)
+                reply = (
+                    "I tried searching our website but encountered an issue. "
+                    "Please contact our admissions office directly:\n\n"
+                    "📧 admissions@vnrvjiet.ac.in\n"
+                    "📞 +91-40-2304 2758/59/60"
+                )
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": reply})
+                return ChatResponse(reply=reply, intent="informational", session_id=session_id)
+        
+        elif _is_no_response(user_msg):
+            # User declined web search
+            del _session_pending_websearch[session_id]
+            reply = (
+                "No problem! If you have any other questions, feel free to ask. "
+                "You can also contact our admissions team directly:\n\n"
+                "📧 admissions@vnrvjiet.ac.in\n"
+                "📞 +91-40-2304 2758/59/60"
+            )
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": reply})
+            return ChatResponse(reply=reply, intent="informational", session_id=session_id)
+        
+        else:
+            # Unclear response - ask again
+            reply = "I didn't quite understand. Would you like me to search our official website? Please reply **yes** or **no**."
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": reply})
+            return ChatResponse(reply=reply, intent="web_search_permission", session_id=session_id)
+
     # ── Check if session is in contact collection mode ────────
     if session_id in _session_contact_data:
-        collected = _session_contact_data[session_id]
-        waiting_for = collected.get("_waiting_for")
-        
-        # Extract and validate the user's input based on what we're waiting for
-        if waiting_for == "name":
-            # Accept any non-empty text as name
-            name = user_msg.strip()
-            if len(name) < 2:
-                ask = "Please provide your **full name** (at least 2 characters)."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-            collected["name"] = name
-        
-        elif waiting_for == "email":
-            # Basic email validation
-            email = user_msg.strip()
-            if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
-                ask = "That doesn't look like a valid email address. Please enter your **email** (e.g., student@example.com)."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-            collected["email"] = email
-        
-        elif waiting_for == "phone":
-            # Extract phone number (10 digits)
-            phone_match = re.search(r"\b(\d{10})\b", user_msg)
-            if not phone_match:
-                ask = "Please provide a valid **10-digit phone number** (e.g., 9876543210)."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-            collected["phone"] = phone_match.group(1)
-        
-        elif waiting_for == "programme":
-            # Parse programme choice
-            msg_lower = user_msg.lower().strip()
-            programme = None
-            if '1' in msg_lower or 'b.tech' in msg_lower or 'btech' in msg_lower or 'bachelor' in msg_lower:
-                programme = "B.Tech"
-            elif '2' in msg_lower or 'm.tech' in msg_lower or 'mtech' in msg_lower or 'master' in msg_lower:
-                programme = "M.Tech"
-            elif '3' in msg_lower or 'mca' in msg_lower:
-                programme = "MCA"
+        # Check if user wants to change topic/exit collection flow
+        if _is_topic_change(user_msg, current_flow="contact_request"):
+            logger.info(f"Topic change detected in contact collection flow for session {session_id}")
+            del _session_contact_data[session_id]
+            # Don't return - continue processing the new query below
+        else:
+            collected = _session_contact_data[session_id]
+            waiting_for = collected.get("_waiting_for")
             
-            if not programme:
-                ask = "Please choose a programme:\n\n1️⃣ B.Tech\n2️⃣ M.Tech\n3️⃣ MCA\n\nReply with the number (1, 2, or 3)."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-            collected["programme"] = programme
-        
-        elif waiting_for == "query_type":
-            # Parse query type
-            msg_lower = user_msg.lower().strip()
-            query_type = None
-            if '1' in msg_lower or 'fraud' in msg_lower or 'agent' in msg_lower or 'scam' in msg_lower:
-                query_type = "fraud_report"
-            elif '2' in msg_lower or 'general' in msg_lower or 'inquiry' in msg_lower or 'admission' in msg_lower:
-                query_type = "general_inquiry"
-            elif '3' in msg_lower or 'not satisfied' in msg_lower or 'dissatisfied' in msg_lower or 'chatbot' in msg_lower:
-                query_type = "dissatisfied"
-            elif '4' in msg_lower or 'other' in msg_lower:
-                query_type = "other"
+            # Extract and validate the user's input based on what we're waiting for
+            if waiting_for == "name":
+                # Accept any non-empty text as name
+                name = user_msg.strip()
+                if len(name) < 2:
+                    ask = "Please provide your **full name** (at least 2 characters)."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+                collected["name"] = name
             
-            if not query_type:
-                ask = "Please choose an option:\n\n1️⃣ Report fraud\n2️⃣ General inquiry\n3️⃣ Not satisfied with chatbot\n4️⃣ Other\n\nReply with the number (1-4)."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-            collected["query_type"] = query_type
-        
-        elif waiting_for == "message":
-            # Optional message - accept anything
-            if len(user_msg.strip()) > 0:
-                collected["message"] = user_msg.strip()
-            else:
-                collected["message"] = None
-        
-        # Check what's still missing and ask the next question
-        for field, question_template in _CONTACT_QUESTIONS:
-            if field not in collected or collected[field] is None:
-                collected["_waiting_for"] = field
-                # Format question with collected data if needed
-                if "{name}" in question_template:
-                    ask = question_template.format(name=collected.get("name", "there"))
-                else:
-                    ask = question_template
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-        
-        # All required fields collected! Ask for optional message
-        if "message" not in collected:
-            collected["_waiting_for"] = "message"
-            ask = "Almost done! Would you like to add any **additional message** or details?\n\n(Or reply **skip** to submit now)"
-            _session_history[session_id].append({"role": "user", "content": user_msg})
-            _session_history[session_id].append({"role": "assistant", "content": ask})
-            return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
-        
-        # Handle skip for message
-        if collected.get("_waiting_for") == "message" and user_msg.lower().strip() == "skip":
-            collected["message"] = None
-        
-        # Everything collected - save to Google Sheets
-        try:
-            from app.logic.google_sheets_service import save_contact_to_sheets
+            elif waiting_for == "email":
+                # Basic email validation
+                email = user_msg.strip()
+                if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+                    ask = "That doesn't look like a valid email address. Please enter your **email** (e.g., student@example.com)."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+                collected["email"] = email
             
-            success, ref_id = await save_contact_to_sheets(
-                name=collected["name"],
-                email=collected["email"],
-                phone=collected["phone"],
-                programme=collected["programme"],
-                query_type=collected["query_type"],
-                message=collected.get("message")
-            )
+            elif waiting_for == "phone":
+                # Extract phone number (10 digits)
+                phone_match = re.search(r"\b(\d{10})\b", user_msg)
+                if not phone_match:
+                    ask = "Please provide a valid **10-digit phone number** (e.g., 9876543210)."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+                collected["phone"] = phone_match.group(1)
             
-            if success:
-                # Show privacy note for phone number
-                phone_note = ""
-                if collected["query_type"] not in ["fraud_report", "general_inquiry"]:
-                    phone_note = "\n\n🔒 **Note:** Your phone number is kept private and will not be shared with the admission team for this request type."
+            elif waiting_for == "programme":
+                # Parse programme choice
+                msg_lower = user_msg.lower().strip()
+                programme = None
+                if '1' in msg_lower or 'b.tech' in msg_lower or 'btech' in msg_lower or 'bachelor' in msg_lower:
+                    programme = "B.Tech"
+                elif '2' in msg_lower or 'm.tech' in msg_lower or 'mtech' in msg_lower or 'master' in msg_lower:
+                    programme = "M.Tech"
+                elif '3' in msg_lower or 'mca' in msg_lower:
+                    programme = "MCA"
                 
-                reply = (
-                    f"✅ **Request Submitted Successfully**\n\n"
-                    f"Thank you, **{collected['name']}**! Our admission team has received your request.\n\n"
-                    f"**Contact Details:**\n"
-                    f"📧 {collected['email']}\n"
-                    f"📞 {collected['phone']}\n"
-                    f"🎓 Programme: {collected['programme']}\n\n"
-                    f"**What's next:**\n"
-                    f"Our team will reach out to you within **24 hours**.\n\n"
-                    f"**Reference ID:** `{ref_id}`{phone_note}"
+                if not programme:
+                    ask = "Please choose a programme:\n\n1️⃣ B.Tech\n2️⃣ M.Tech\n3️⃣ MCA\n\nReply with the number (1, 2, or 3)."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+                collected["programme"] = programme
+            
+            elif waiting_for == "query_type":
+                # Parse query type
+                msg_lower = user_msg.lower().strip()
+                query_type = None
+                if '1' in msg_lower or 'fraud' in msg_lower or 'agent' in msg_lower or 'scam' in msg_lower:
+                    query_type = "fraud_report"
+                elif '2' in msg_lower or 'general' in msg_lower or 'inquiry' in msg_lower or 'admission' in msg_lower:
+                    query_type = "general_inquiry"
+                elif '3' in msg_lower or 'not satisfied' in msg_lower or 'dissatisfied' in msg_lower or 'chatbot' in msg_lower:
+                    query_type = "dissatisfied"
+                elif '4' in msg_lower or 'other' in msg_lower:
+                    query_type = "other"
+                
+                if not query_type:
+                    ask = "Please choose an option:\n\n1️⃣ Report fraud\n2️⃣ General inquiry\n3️⃣ Not satisfied with chatbot\n4️⃣ Other\n\nReply with the number (1-4)."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+                collected["query_type"] = query_type
+            
+            elif waiting_for == "message":
+                # Optional message - accept anything
+                if len(user_msg.strip()) > 0:
+                    collected["message"] = user_msg.strip()
+                else:
+                    collected["message"] = None
+            
+            # Check what's still missing and ask the next question
+            for field, question_template in _CONTACT_QUESTIONS:
+                if field not in collected or collected[field] is None:
+                    collected["_waiting_for"] = field
+                    # Format question with collected data if needed
+                    if "{name}" in question_template:
+                        ask = question_template.format(name=collected.get("name", "there"))
+                    else:
+                        ask = question_template
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            
+            # All required fields collected! Ask for optional message
+            if "message" not in collected:
+                collected["_waiting_for"] = "message"
+                ask = "Almost done! Would you like to add any **additional message** or details?\n\n(Or reply **skip** to submit now)"
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": ask})
+                return ChatResponse(reply=ask, intent="contact_request", session_id=session_id)
+            
+            # Handle skip for message
+            if collected.get("_waiting_for") == "message" and user_msg.lower().strip() == "skip":
+                collected["message"] = None
+            
+            # Everything collected - save to Google Sheets
+            try:
+                from app.logic.google_sheets_service import save_contact_to_sheets
+                
+                success, ref_id = await save_contact_to_sheets(
+                    name=collected["name"],
+                    email=collected["email"],
+                    phone=collected["phone"],
+                    programme=collected["programme"],
+                    query_type=collected["query_type"],
+                    message=collected.get("message")
                 )
-            else:
+                
+                if success:
+                    # Show privacy note for phone number
+                    phone_note = ""
+                    if collected["query_type"] not in ["fraud_report", "general_inquiry"]:
+                        phone_note = "\n\n🔒 **Note:** Your phone number is kept private and will not be shared with the admission team for this request type."
+                    
+                    reply = (
+                        f"✅ **Request Submitted Successfully**\n\n"
+                        f"Thank you, **{collected['name']}**! Our admission team has received your request.\n\n"
+                        f"**Contact Details:**\n"
+                        f"📧 {collected['email']}\n"
+                        f"📞 {collected['phone']}\n"
+                        f"🎓 Programme: {collected['programme']}\n\n"
+                        f"**What's next:**\n"
+                        f"Our team will reach out to you within **24 hours**.\n\n"
+                        f"**Reference ID:** `{ref_id}`{phone_note}"
+                    )
+                else:
+                    reply = (
+                        "⚠️ There was an issue submitting your request. "
+                        "Please contact our admission team directly:\n\n"
+                        "📧 admissions@vnrvjiet.ac.in\n"
+                        "📞 +91-40-2304 2758"
+                    )
+                
+                # Clean up session state
+                del _session_contact_data[session_id]
+                
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": reply})
+                return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
+            
+            except Exception as e:
+                logger.error(f"Failed to save contact request: {e}", exc_info=True)
                 reply = (
-                    "⚠️ There was an issue submitting your request. "
+                    "⚠️ There was an error processing your request. "
                     "Please contact our admission team directly:\n\n"
                     "📧 admissions@vnrvjiet.ac.in\n"
                     "📞 +91-40-2304 2758"
                 )
-            
-            # Clean up session state
-            del _session_contact_data[session_id]
-            
-            _session_history[session_id].append({"role": "user", "content": user_msg})
-            _session_history[session_id].append({"role": "assistant", "content": reply})
-            return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
-        
-        except Exception as e:
-            logger.error(f"Failed to save contact request: {e}", exc_info=True)
-            reply = (
-                "⚠️ There was an error processing your request. "
-                "Please contact our admission team directly:\n\n"
-                "📧 admissions@vnrvjiet.ac.in\n"
-                "📞 +91-40-2304 2758"
-            )
-            del _session_contact_data[session_id]
-            _session_history[session_id].append({"role": "user", "content": user_msg})
-            _session_history[session_id].append({"role": "assistant", "content": reply})
-            return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
+                del _session_contact_data[session_id]
+                _session_history[session_id].append({"role": "user", "content": user_msg})
+                _session_history[session_id].append({"role": "assistant", "content": reply})
+                return ChatResponse(reply=reply, intent="contact_request", session_id=session_id)
 
     # ── Check if session is in cutoff collection mode ─────────
     if session_id in _session_cutoff_data:
-        # We're collecting cutoff details step by step
+        # Check if user wants to change topic/exit collection flow
         collected = _session_cutoff_data[session_id]
-        waiting_for = collected.get("_waiting_for")
-        flow = collected.get("_flow", "cutoff")  # "cutoff" or "eligibility"
-        questions = _ELIGIBILITY_QUESTIONS if flow == "eligibility" else _CUTOFF_QUESTIONS
+        flow = collected.get("_flow", "cutoff")
+        
+        if _is_topic_change(user_msg, current_flow=flow):
+            logger.info(f"Topic change detected in {flow} collection flow for session {session_id}")
+            del _session_cutoff_data[session_id]
+            _session_pending_intent.pop(session_id, None)
+            # Don't return - continue processing the new query below
+        else:
+            # We're collecting cutoff details step by step
+            waiting_for = collected.get("_waiting_for")
+            questions = _ELIGIBILITY_QUESTIONS if flow == "eligibility" else _CUTOFF_QUESTIONS
 
-        # Handle reuse confirmation
-        if waiting_for == "_confirm_reuse":
-            response = user_msg.strip().lower()
-            if response in ("yes", "y", "yeah", "yep", "sure", "ok", "okay"):
-                # User confirmed reuse - copy data
-                reuse_data = collected.get("_reuse_data", {})
-                collected["branch"] = reuse_data.get("branch")
-                collected["category"] = reuse_data.get("category")
-                collected["gender"] = reuse_data.get("gender")
-                
-                # Check if rank was already extracted from previous message
-                extracted_rank = collected.get("_extracted_rank")
-                if extracted_rank:
-                    # We have everything - complete the eligibility check
-                    del _session_cutoff_data[session_id]
-                    _session_pending_intent.pop(session_id, None)
+            # Handle reuse confirmation
+            if waiting_for == "_confirm_reuse":
+                response = user_msg.strip().lower()
+                if response in ("yes", "y", "yeah", "yep", "sure", "ok", "okay"):
+                    # User confirmed reuse - copy data
+                    reuse_data = collected.get("_reuse_data", {})
+                    collected["branch"] = reuse_data.get("branch")
+                    collected["category"] = reuse_data.get("category")
+                    collected["gender"] = reuse_data.get("gender")
                     
-                    branches_list = collected["branch"]
-                    if isinstance(branches_list, str):
-                        branches_list = [branches_list]
-                    
-                    show_trend = collected.get("_show_trend", False)
-                    reply = _build_multi_branch_reply(
-                        branches_list, 
-                        collected["category"], 
-                        collected["gender"], 
-                        extracted_rank,
-                        show_trend=show_trend
-                    )
-                    
-                    _session_history[session_id].append({"role": "user", "content": user_msg})
-                    _session_history[session_id].append({"role": "assistant", "content": reply})
-                    return ChatResponse(
-                        reply=reply, intent="eligibility", session_id=session_id,
-                        sources=["VNRVJIET Cutoff Database"],
-                    )
+                    # Check if rank was already extracted from previous message
+                    extracted_rank = collected.get("_extracted_rank")
+                    if extracted_rank:
+                        # We have everything - complete the eligibility check
+                        del _session_cutoff_data[session_id]
+                        _session_pending_intent.pop(session_id, None)
+                        
+                        branches_list = collected["branch"]
+                        if isinstance(branches_list, str):
+                            branches_list = [branches_list]
+                        
+                        show_trend = collected.get("_show_trend", False)
+                        reply = _build_multi_branch_reply(
+                            branches_list, 
+                            collected["category"], 
+                            collected["gender"], 
+                            extracted_rank,
+                            show_trend=show_trend
+                        )
+                        
+                        _session_history[session_id].append({"role": "user", "content": user_msg})
+                        _session_history[session_id].append({"role": "assistant", "content": reply})
+                        return ChatResponse(
+                            reply=reply, intent="eligibility", session_id=session_id,
+                            sources=["VNRVJIET Cutoff Database"],
+                        )
+                    else:
+                        # Still need to ask for rank
+                        collected["_waiting_for"] = "rank"
+                        ask = "Great! What is your **EAPCET rank**?"
+                        _session_history[session_id].append({"role": "user", "content": user_msg})
+                        _session_history[session_id].append({"role": "assistant", "content": ask})
+                        return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
                 else:
-                    # Still need to ask for rank
-                    collected["_waiting_for"] = "rank"
-                    ask = "Great! What is your **EAPCET rank**?"
+                    # User wants different details - start fresh
+                    show_trend_flag = collected.get("_show_trend", False)  # Preserve trend flag
+                    collected.clear()
+                    collected["_flow"] = "eligibility"
+                    if show_trend_flag:
+                        collected["_show_trend"] = True
+                    collected["_waiting_for"] = "branch"
+                    
+                    avail_branches = list_branches()
+                    branch_list = ", ".join(avail_branches)
+                    ask = f"Sure! Let me help you check your eligibility.\n\nWhich **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branch_list}"
                     _session_history[session_id].append({"role": "user", "content": user_msg})
                     _session_history[session_id].append({"role": "assistant", "content": ask})
                     return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
-            else:
-                # User wants different details - start fresh
-                show_trend_flag = collected.get("_show_trend", False)  # Preserve trend flag
-                collected.clear()
-                collected["_flow"] = "eligibility"
-                if show_trend_flag:
-                    collected["_show_trend"] = True
-                collected["_waiting_for"] = "branch"
-                
-                avail_branches = list_branches()
-                branch_list = ", ".join(avail_branches)
-                ask = f"Sure! Let me help you check your eligibility.\n\nWhich **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branch_list}"
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
-        
-        # Try to extract what we asked for from the user's reply
-        if waiting_for == "branch":
-            vals = extract_branches(user_msg)
-            if vals:
-                # Resolve "ALL" to actual branch list from DB
-                if vals == ["ALL"]:
-                    vals = list_branches()
-                collected["branch"] = vals
-            else:
-                # Try raw text as a single branch name
-                collected["branch"] = [user_msg.strip().upper()]
-
-        elif waiting_for == "category":
-            val = extract_category(user_msg)
-            if not val:
-                val = user_msg.strip().upper()
-            collected["category"] = val
-
-        elif waiting_for == "gender":
-            val = extract_gender(user_msg)
-            if not val:
-                t = user_msg.strip().lower()
-                if t in ("boy", "boys", "male", "m"):
-                    val = "Boys"
-                elif t in ("girl", "girls", "female", "f"):
-                    val = "Girls"
+            
+            # Try to extract what we asked for from the user's reply
+            if waiting_for == "branch":
+                vals = extract_branches(user_msg)
+                if vals:
+                    # Resolve "ALL" to actual branch list from DB
+                    if vals == ["ALL"]:
+                        vals = list_branches()
+                    collected["branch"] = vals
                 else:
-                    val = user_msg.strip()
-            collected["gender"] = val
+                    # Try raw text as a single branch name
+                    collected["branch"] = [user_msg.strip().upper()]
 
-        elif waiting_for == "rank":
-            # Check if user says they don't have a rank
-            no_rank_phrases = ["no rank", "don't have", "dont have", "no", "don\x27t know", "not sure", "skip"]
-            if any(p in user_msg.lower() for p in no_rank_phrases):
-                # User doesn't have rank → just show cutoff ranks instead
-                branches_list = collected.get("branch", [])
-                if isinstance(branches_list, str):
-                    branches_list = [branches_list]
-                category = collected.get("category") or "OC"
-                gender = collected.get("gender") or "Boys"
-                del _session_cutoff_data[session_id]
-                _session_pending_intent.pop(session_id, None)
+            elif waiting_for == "category":
+                val = extract_category(user_msg)
+                if not val:
+                    val = user_msg.strip().upper()
+                collected["category"] = val
 
-                reply = "No worries! Here are the cutoff ranks for reference:\n\n"
-                show_trend = collected.get("_show_trend", False)
-                reply += _build_multi_branch_reply(branches_list, category, gender, rank=None, show_trend=show_trend)
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": reply})
-                return ChatResponse(
-                    reply=reply, intent="cutoff", session_id=session_id,
-                    sources=["VNRVJIET Cutoff Database"],
-                )
+            elif waiting_for == "gender":
+                val = extract_gender(user_msg)
+                if not val:
+                    t = user_msg.strip().lower()
+                    if t in ("boy", "boys", "male", "m"):
+                        val = "Boys"
+                    elif t in ("girl", "girls", "female", "f"):
+                        val = "Girls"
+                    else:
+                        val = user_msg.strip()
+                collected["gender"] = val
 
-            val = extract_rank(user_msg)
-            if val:
-                collected["rank"] = val
-            else:
-                num_match = re.search(r"\b(\d+)\b", user_msg)
-                if num_match and int(num_match.group(1)) > 200000:
-                    ask = "That rank seems too high. EAPCET ranks typically range from **1 to 2,00,000**. Please re-enter your correct rank."
+            elif waiting_for == "rank":
+                # Check if user says they don't have a rank
+                no_rank_phrases = ["no rank", "don't have", "dont have", "no", "don\x27t know", "not sure", "skip"]
+                if any(p in user_msg.lower() for p in no_rank_phrases):
+                    # User doesn't have rank → just show cutoff ranks instead
+                    branches_list = collected.get("branch", [])
+                    if isinstance(branches_list, str):
+                        branches_list = [branches_list]
+                    category = collected.get("category") or "OC"
+                    gender = collected.get("gender") or "Boys"
+                    del _session_cutoff_data[session_id]
+                    _session_pending_intent.pop(session_id, None)
+
+                    reply = "No worries! Here are the cutoff ranks for reference:\n\n"
+                    show_trend = collected.get("_show_trend", False)
+                    reply += _build_multi_branch_reply(branches_list, category, gender, rank=None, show_trend=show_trend)
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": reply})
+                    return ChatResponse(
+                        reply=reply, intent="cutoff", session_id=session_id,
+                        sources=["VNRVJIET Cutoff Database"],
+                    )
+
+                val = extract_rank(user_msg)
+                if val:
+                    collected["rank"] = val
                 else:
-                    ask = "I couldn't understand that. Please enter your **EAPCET rank** as a number (e.g., 5000).\n\nOr reply **no** if you just want to see cutoff ranks."
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
+                    num_match = re.search(r"\b(\d+)\b", user_msg)
+                    if num_match and int(num_match.group(1)) > 200000:
+                        ask = "That rank seems too high. EAPCET ranks typically range from **1 to 2,00,000**. Please re-enter your correct rank."
+                    else:
+                        ask = "I couldn't understand that. Please enter your **EAPCET rank** as a number (e.g., 5000).\n\nOr reply **no** if you just want to see cutoff ranks."
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
 
-        # Check what's still missing and ask the next question
-        for field, question_template in questions:
-            if field not in collected or collected[field] is None:
-                collected["_waiting_for"] = field
-                if field == "branch":
-                    branches = list_branches()
-                    branch_list = ", ".join(branches)
-                    ask = question_template.format(branches=branch_list)
-                else:
-                    ask = question_template
-                _session_history[session_id].append({"role": "user", "content": user_msg})
-                _session_history[session_id].append({"role": "assistant", "content": ask})
-                return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
+            # Check what's still missing and ask the next question
+            for field, question_template in questions:
+                if field not in collected or collected[field] is None:
+                    collected["_waiting_for"] = field
+                    if field == "branch":
+                        branches = list_branches()
+                        branch_list = ", ".join(branches)
+                        ask = question_template.format(branches=branch_list)
+                    else:
+                        ask = question_template
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": ask})
+                    return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
 
-        # All fields collected!
-        branches_list = collected["branch"]
-        if isinstance(branches_list, str):
-            branches_list = [branches_list]
-        category = collected["category"]
-        gender = collected["gender"]
-        
-        # Save this cutoff query for potential reuse in eligibility check
-        if not collected.get("rank"):
-            _session_last_cutoff[session_id] = {
-                "branch": branches_list,
-                "category": category,
-                "gender": gender,
-            }
-        
-        del _session_cutoff_data[session_id]
-        _session_pending_intent.pop(session_id, None)
+            # All fields collected!
+            branches_list = collected["branch"]
+            if isinstance(branches_list, str):
+                branches_list = [branches_list]
+            category = collected["category"]
+            gender = collected["gender"]
+            
+            # Save this cutoff query for potential reuse in eligibility check
+            if not collected.get("rank"):
+                _session_last_cutoff[session_id] = {
+                    "branch": branches_list,
+                    "category": category,
+                    "gender": gender,
+                }
+            
+            del _session_cutoff_data[session_id]
+            _session_pending_intent.pop(session_id, None)
 
-        has_rank = "rank" in collected
-        rank_val = collected.get("rank")
-        show_trend = collected.get("_show_trend", False)
+            has_rank = "rank" in collected
+            rank_val = collected.get("rank")
+            show_trend = collected.get("_show_trend", False)
 
-        # Query each branch and combine results
-        reply = _build_multi_branch_reply(branches_list, category, gender, rank_val if has_rank else None, show_trend=show_trend)
+            # Query each branch and combine results
+            reply = _build_multi_branch_reply(branches_list, category, gender, rank_val if has_rank else None, show_trend=show_trend)
 
-        _session_history[session_id].append({"role": "user", "content": user_msg})
-        _session_history[session_id].append({"role": "assistant", "content": reply})
+            _session_history[session_id].append({"role": "user", "content": user_msg})
+            _session_history[session_id].append({"role": "assistant", "content": reply})
 
-        return ChatResponse(
-            reply=reply, intent="cutoff", session_id=session_id,
-            sources=["VNRVJIET Cutoff Database"],
-        )
+            return ChatResponse(
+                reply=reply, intent="cutoff", session_id=session_id,
+                sources=["VNRVJIET Cutoff Database"],
+            )
 
     # ── Check for contact request keywords ───────────────────
     contact_keywords = [
@@ -854,9 +1168,41 @@ async def chat(req: ChatRequest, request: Request):
             logger.error("RAG retrieval failed: %s", e, exc_info=True)
             rag_context = ""
 
+    # ── Web search fallback (if RAG + cutoff both empty) ──────
+    if (
+        settings.WEB_SEARCH_ENABLED 
+        and intent == IntentType.INFORMATIONAL 
+        and not rag_context 
+        and not cutoff_info
+        and session_id not in _session_pending_websearch
+    ):
+        # No information available - ask permission to search website
+        _session_pending_websearch[session_id] = user_msg
+        
+        reply = (
+            "I don't have that specific information in my database right now. 🤔\n\n"
+            "Would you like me to search our official **VNRVJIET website** for this information? "
+            "(Reply **yes** or **no**)"
+        )
+        
+        _session_history[session_id].append({"role": "user", "content": user_msg})
+        _session_history[session_id].append({"role": "assistant", "content": reply})
+        
+        return ChatResponse(
+            reply=reply,
+            intent="web_search_permission",
+            session_id=session_id,
+        )
+
     # ── Generate final answer ─────────────────────────────────
     history = _session_history.get(session_id, [])
-    reply = _generate_llm_response(user_msg, rag_context, cutoff_info, history=history)
+    reply = _generate_llm_response(
+        user_msg, 
+        rag_context, 
+        cutoff_info, 
+        history=history,
+        session_id=session_id
+    )
 
     # Clear pending intent since we got a full answer
     _session_pending_intent.pop(session_id, None)
@@ -887,3 +1233,56 @@ async def health():
 @router.get("/branches")
 async def branches():
     return {"branches": list_branches()}
+
+
+@router.post("/clear-session")
+async def clear_session(req: ChatRequest):
+    """
+    Clear all session data for a fresh start.
+    
+    This endpoint removes:
+    - Conversation history
+    - Pending intents
+    - Cutoff collection state
+    - Contact request state
+    - Last cutoff query cache
+    """
+    session_id = req.session_id
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Clear all session-related data
+    cleared = []
+    
+    if session_id in _session_history:
+        del _session_history[session_id]
+        cleared.append("history")
+    
+    if session_id in _session_pending_intent:
+        del _session_pending_intent[session_id]
+        cleared.append("pending_intent")
+    
+    if session_id in _session_cutoff_data:
+        del _session_cutoff_data[session_id]
+        cleared.append("cutoff_data")
+    
+    if session_id in _session_contact_data:
+        del _session_contact_data[session_id]
+        cleared.append("contact_data")
+    
+    if session_id in _session_last_cutoff:
+        del _session_last_cutoff[session_id]
+        cleared.append("last_cutoff")
+    
+    if session_id in _session_pending_websearch:
+        del _session_pending_websearch[session_id]
+        cleared.append("pending_websearch")
+    
+    logger.info(f"Cleared session {session_id}: {', '.join(cleared) if cleared else 'no data found'}")
+    
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "cleared": cleared
+    }

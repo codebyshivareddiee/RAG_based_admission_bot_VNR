@@ -193,6 +193,28 @@ html, body {
 
 .chat-header .home-btn:hover {
   background: rgba(255,255,255,0.3);
+  transform: scale(1.05);
+}
+
+.chat-header .home-btn:active {
+  transform: scale(0.92);
+  background: rgba(255,255,255,0.4);
+}
+
+/* Chat reset animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-messages.reset-animation {
+  animation: fadeInUp 0.4s ease-out;
 }
 
 /* ── Disclaimer ─────────────────────────────────────────────── */
@@ -323,7 +345,119 @@ html, body {
   0%, 60%, 100% { transform: translateY(0); }
   30% { transform: translateY(-6px); }
 }
+/* ── Web Search Loading Animation ───────────────────────────── */
 
+.typing-indicator.web-search .bubble {
+  background: linear-gradient(135deg, #f0f4ff, #e8f0fe);
+  border: 1px solid #d0e1ff;
+  padding: 12px 18px;
+  min-width: 180px;
+}
+
+.web-search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid var(--primary-light);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: webSearchSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.search-text {
+  font-size: 12.5px;
+  color: var(--primary);
+  font-weight: 500;
+  margin-left: 8px;
+  animation: searchPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes webSearchSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes searchPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Web Search Permission Buttons ──────────────────────────── */
+
+.web-search-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  margin-top: 8px;
+}
+
+.ws-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.ws-btn svg {
+  flex-shrink: 0;
+}
+
+.ws-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.ws-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.ws-yes {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #ffffff;
+}
+
+.ws-yes:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+}
+
+.ws-yes:active {
+  transform: translateY(0);
+}
+
+.ws-no {
+  background: var(--bg-light);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+}
+
+.ws-no:hover {
+  background: #e8ebf0;
+  border-color: var(--text-muted);
+}
+
+.ws-no:active {
+  background: #dee2e8;
+}
 /* ── Input Area ─────────────────────────────────────────────── */
 
 .chat-input-area {

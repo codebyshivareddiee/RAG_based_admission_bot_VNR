@@ -71,6 +71,38 @@ class Settings:
     # ── Paths ─────────────────────────────────────────────────
     SYSTEM_PROMPT_PATH: str = str(BASE_DIR / "prompts" / "system_prompt.txt")
 
+    # ── Web Search Fallback ───────────────────────────────────
+    WEB_SEARCH_ENABLED: bool = os.getenv("WEB_SEARCH_ENABLED", "true").lower() == "true"
+    
+    # Key VNRVJIET website URLs for fallback search
+    VNRVJIET_WEBSITE_URLS: dict[str, str] = {
+        # Core pages
+        "home": "https://vnrvjiet.ac.in/",
+        "admissions": "https://vnrvjiet.ac.in/admission/",
+        "international_admissions": "https://vnrvjiet.ac.in/international-admissions/",
+        "departments": "https://vnrvjiet.ac.in/departments-and-examinations/",
+        
+        # Academic & Support
+        "syllabus": "https://vnrvjiet.ac.in/syllabus-books/",
+        "academic_calendar": "https://vnrvjiet.ac.in/academic-calendar/",
+        "library": "https://vnrvjiet.ac.in/library/",
+        
+        # Career & Training
+        "placements": "https://vnrvjiet.ac.in/training-placement/",
+        
+        # Student Facilities
+        "transport": "https://vnrvjiet.ac.in/transport/",
+        "hostel": "https://www.vnrvjiet.ac.in/hostel",
+        "campus": "https://www.vnrvjiet.ac.in/campus-life",
+        "facilities": "https://www.vnrvjiet.ac.in/facilities",
+        
+        # Other
+        "fees": "https://www.vnrvjiet.ac.in/admissions/fee-structure",
+        "scholarship": "https://www.vnrvjiet.ac.in/admissions/scholarships",
+        "about": "https://www.vnrvjiet.ac.in/about",
+        "general": "https://vnrvjiet.ac.in/",
+    }
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

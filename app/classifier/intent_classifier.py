@@ -45,6 +45,10 @@ _CUTOFF_KEYWORDS: list[str] = [
     "last rank", "closing rank", "opening rank",
     "eapcet", "tseamcet", "ts eamcet", "ap eamcet", "tgeapcet",
     "seat allotment", "counselling", "counseling",
+    "trend", "trends", "trending", "rank trend",
+    "previous year", "previous years", "past year", "past years",
+    "historical rank", "historical cutoff", "year by year",
+    "over the years", "across years", "comparison over years",
 ]
 
 _ELIGIBILITY_KEYWORDS: list[str] = [
