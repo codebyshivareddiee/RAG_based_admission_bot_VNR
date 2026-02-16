@@ -40,13 +40,17 @@
     });
   }
 
-  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks) */
+  /** Minimal Markdown → HTML (headings, bold, italic, lists, links, line breaks) */
   function renderMarkdown(text) {
     let html = text
       // Headings: ### h3, ## h2, # h1 (must be at line start)
       .replace(/^###\s+(.+)$/gm, "<strong style='font-size:1.05em;display:block;margin:8px 0 4px;'>$1</strong>")
       .replace(/^##\s+(.+)$/gm, "<strong style='font-size:1.1em;display:block;margin:8px 0 4px;'>$1</strong>")
       .replace(/^#\s+(.+)$/gm, "<strong style='font-size:1.15em;display:block;margin:8px 0 4px;'>$1</strong>")
+      // Markdown links [text](url)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href='$2' target='_blank' rel='noopener noreferrer' style='color:#1a237e;text-decoration:underline;'>$1</a>")
+      // Plain URLs (https:// or http://)
+      .replace(/(?<!href=['"]|src=['"])(\bhttps?:\/\/[^\s<]+)/g, "<a href='$1' target='_blank' rel='noopener noreferrer' style='color:#1a237e;text-decoration:underline;'>$1</a>")
       // Bold **text**
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       // Italic *text*
@@ -136,8 +140,28 @@
 
   /** Reset chat to initial welcome screen */
   function resetChat() {
-    // Clear messages
+    // Clear server-side session data
+    const oldSessionId = sessionId;
+    fetch(`${API_BASE}/api/clear-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        message: "clear",  // Required by ChatRequest model
+        session_id: oldSessionId 
+      }),
+    }).catch((err) => {
+      console.warn("Failed to clear server session:", err);
+      // Continue with client-side reset anyway
+    });
+    
+    // Clear messages with fade effect
     messagesEl.innerHTML = "";
+    messagesEl.classList.add("reset-animation");
+    
+    // Remove animation class after it completes
+    setTimeout(() => {
+      messagesEl.classList.remove("reset-animation");
+    }, 400);
     
     // Hide input area
     inputArea.style.display = "none";
@@ -149,6 +173,8 @@
     
     // Show welcome screen
     showWelcome();
+    
+    console.log("Chat reset - New session:", sessionId);
   }
 
   /** Render main category buttons + "Others" */
@@ -287,6 +313,51 @@
     scrollToBottom();
   }
 
+  /** Add Yes/No buttons for web search permission */
+  function addWebSearchButtons() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+
+    const btnContainer = document.createElement("div");
+    btnContainer.className = "web-search-buttons";
+
+    // Yes button
+    const yesBtn = document.createElement("button");
+    yesBtn.className = "ws-btn ws-yes";
+    yesBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Yes, search website</span>';
+    yesBtn.addEventListener("click", () => {
+      wrapper.remove();
+      addUserMessage("Yes");
+      sendMessageWithWebSearch("yes");
+    });
+
+    // No button
+    const noBtn = document.createElement("button");
+    noBtn.className = "ws-btn ws-no";
+    noBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>No, thanks</span>';
+    noBtn.addEventListener("click", () => {
+      wrapper.remove();
+      addUserMessage("No");
+      sendMessage("no");
+    });
+
+    btnContainer.appendChild(yesBtn);
+    btnContainer.appendChild(noBtn);
+    wrapper.appendChild(btnContainer);
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
+  }
+
+  /** Check if bot response is asking for web search permission */
+  function isWebSearchPermissionRequest(text) {
+    const lowerText = text.toLowerCase();
+    return (
+      lowerText.includes("search our official") &&
+      lowerText.includes("website") &&
+      (lowerText.includes("would you like") || lowerText.includes("reply"))
+    );
+  }
+
   function showTyping() {
     if (typingEl) return; // already showing
     typingEl = document.createElement("div");
@@ -294,6 +365,17 @@
     typingEl.className = "typing-indicator active";
     typingEl.innerHTML =
       '<div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+    messagesEl.appendChild(typingEl);
+    scrollToBottom();
+  }
+
+  function showWebSearchLoading() {
+    if (typingEl) return; // already showing
+    typingEl = document.createElement("div");
+    typingEl.id = "typing-indicator";
+    typingEl.className = "typing-indicator active web-search";
+    typingEl.innerHTML =
+      '<div class="bubble"><div class="web-search-spinner"></div><span class="search-text">Searching website...</span></div>';
     messagesEl.appendChild(typingEl);
     scrollToBottom();
   }
@@ -317,6 +399,75 @@
   }
 
   // ── API Communication ────────────────────────────────────────
+
+  async function sendMessageWithWebSearch(text) {
+    if (!text || !text.trim() || isSending) return;
+
+    const userText = text.trim();
+    inputEl.value = "";
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    isSending = true;
+
+    showWebSearchLoading();
+
+    try {
+      const response = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userText,
+          session_id: sessionId,
+        }),
+      });
+
+      if (response.status === 429) {
+        hideTyping();
+        addBotMessage(
+          "You're sending messages too quickly. Please wait a moment and try again."
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      hideTyping();
+
+      sessionId = data.session_id || sessionId;
+      sessionStorage.setItem("chatbot_session", sessionId);
+
+      addBotMessage(data.reply);
+
+      // Source citations
+      if (data.sources && data.sources.length > 0) {
+        const srcText =
+          "📄 *Sources: " + data.sources.join(", ") + "*";
+        const bubbles = messagesEl.querySelectorAll(".message.bot .bubble");
+        if (bubbles.length > 0) {
+          const last = bubbles[bubbles.length - 1];
+          const srcSpan = document.createElement("div");
+          srcSpan.style.cssText =
+            "font-size:10px;color:#888;margin-top:6px;font-style:italic;";
+          srcSpan.textContent = "📄 Sources: " + data.sources.join(", ");
+          last.appendChild(srcSpan);
+        }
+      }
+    } catch (err) {
+      hideTyping();
+      console.error("Chat error:", err);
+      addBotMessage(
+        "Sorry, I'm having trouble connecting right now. Please try again in a moment."
+      );
+    } finally {
+      isSending = false;
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
 
   async function sendMessage(text) {
     if (!text || !text.trim() || isSending) return;
@@ -358,7 +509,13 @@
       sessionId = data.session_id || sessionId;
       sessionStorage.setItem("chatbot_session", sessionId);
 
-      addBotMessage(data.reply);
+      // Check if this is a web search permission request
+      if (isWebSearchPermissionRequest(data.reply)) {
+        addBotMessage(data.reply);
+        addWebSearchButtons();
+      } else {
+        addBotMessage(data.reply);
+      }
 
       // Source citations
       if (data.sources && data.sources.length > 0) {

@@ -43,6 +43,7 @@ Query Classifier (rule-based)
 
 - **Hybrid pipeline**: Structured cutoff queries via Firestore; informational queries via Pinecone RAG
 - **4 Years Historical Data**: 1,271 EAPCET cutoff records spanning 2022-2025
+- **Smart Token Management**: Automatic context trimming, summarization, and overflow handling to prevent API errors
 - **Contact Request System**: Collects user info when they want to speak with admission department
 - **Admin Dashboard**: Easy-to-use interface for admission staff to view and manage contact requests
 - **Privacy Protection**: Phone numbers only shared for fraud reports, not for general queries
