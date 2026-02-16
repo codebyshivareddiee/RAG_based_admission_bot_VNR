@@ -5,6 +5,7 @@ Supports:
 - Plain text files (.txt)
 - PDF files (.pdf)
 - Markdown files (.md)
+- Word documents (.docx)
 - Excel files (.xlsx, .xls)
 - CSV files (.csv)
 
@@ -174,10 +175,37 @@ def _read_csv_file(path: Path) -> str:
     return "\n".join(parts)
 
 
+def _read_docx_file(path: Path) -> str:
+    """Extract text from Word .docx files."""
+    try:
+        from docx import Document
+    except ImportError:
+        raise ImportError("Install python-docx:  pip install python-docx")
+
+    doc = Document(str(path))
+    parts: list[str] = []
+    
+    for paragraph in doc.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            parts.append(text)
+    
+    # Also extract text from tables
+    for table in doc.tables:
+        for row in table.rows:
+            row_text = [cell.text.strip() for cell in row.cells]
+            if any(row_text):
+                parts.append(" | ".join(row_text))
+    
+    return "\n\n".join(parts)
+
+
 def _extract_text(path: Path) -> str:
     ext = path.suffix.lower()
     if ext == ".pdf":
         return _read_pdf_file(path)
+    if ext == ".docx":
+        return _read_docx_file(path)
     if ext in (".xlsx", ".xls"):
         return _read_excel_file(path)
     if ext == ".csv":
@@ -312,7 +340,7 @@ def ingest_directory(
     if not docs_path.is_dir():
         raise FileNotFoundError(f"Directory not found: {docs_dir}")
 
-    supported = {".txt", ".md", ".markdown", ".pdf", ".xlsx", ".xls", ".csv"}
+    supported = {".txt", ".md", ".markdown", ".pdf", ".docx", ".xlsx", ".xls", ".csv"}
     total = 0
 
     for fpath in sorted(docs_path.iterdir()):

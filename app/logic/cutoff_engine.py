@@ -147,6 +147,7 @@ def get_cutoff(
     gender: str = "Any",
     quota: str = "Convenor",
     ph_type: str | None = None,
+    show_trend: bool = False,
 ) -> CutoffResult:
     """
     Look up exact cutoff from Firestore.
@@ -160,6 +161,7 @@ def get_cutoff(
     gender : str   – "Boys" | "Girls"
     quota : str    – "Convenor" | "SPORTS" | "CAP" | "NCC" | "OTHERS"
     ph_type : str  – PH disability code: "PHV","PHH","PHO","PHM","PHA" or None
+    show_trend : bool – If True, show all years with trend analysis; if False, show only latest year
     """
     branch = _normalise_branch(branch)
     category = _normalise_category(category)
@@ -223,8 +225,8 @@ def get_cutoff(
 
     best = rows[0]
 
-    # If no specific year requested, show ALL available years
-    if not year and len(set(r.get("year") for r in rows)) > 1:
+    # If no specific year requested and show_trend=True, show ALL available years with analysis
+    if not year and show_trend and len(set(r.get("year") for r in rows)) > 1:
         # Group by year and build a year-wise comparison
         years_seen = {}
         for r in rows:
@@ -275,11 +277,13 @@ def get_cutoff(
             + "\n\n⚠️ _These are based on previous year data and cutoffs may vary._"
         )
     else:
+        # Show only the latest year (default behavior)
+        year_label = f"**{best['year']}**" if best.get('year') else "the latest year"
         message = (
-            f"The closing cutoff rank for {best['branch']} under {best['category']} "
-            f"category in Year {best['year']}, Round {best.get('round', 1)} "
-            f"({best['quota']} quota) was **{best['cutoff_rank']:,}**.\n\n"
-            f"⚠️ _This is based on previous year data and cutoffs may vary this year._"
+            f"The closing cutoff rank for **{best['branch']}** under **{best['category']}** "
+            f"category in {year_label}, Round {best.get('round', 1)} "
+            f"({best['quota']} quota) is **{best['cutoff_rank']:,}**.\n\n"
+            f"⚠️ _This is based on previous year data and cutoffs may vary._"
         )
 
     return CutoffResult(

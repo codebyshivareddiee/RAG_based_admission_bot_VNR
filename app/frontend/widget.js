@@ -16,8 +16,7 @@
   // ── DOM References ───────────────────────────────────────────
   const toggleBtn = document.getElementById("chat-toggle");
   const container = document.getElementById("chat-container");
-  const closeBtn = document.getElementById("chat-close");
-  const messagesEl = document.getElementById("chat-messages");
+  const closeBtn = document.getElementById("chat-close");  const homeBtn = document.getElementById("chat-home");  const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
   const inputArea = document.getElementById("chat-input-area");
@@ -98,6 +97,7 @@
       "What is the selection criteria?",
     ],
     "Branch-wise Cutoff Ranks": [
+      "Show cutoff trend analysis for a branch",
       "CSE cutoff for OC category?",
       "ECE cutoff for BC-B category?",
       "What was last year's closing rank?",
@@ -132,6 +132,23 @@
 
     // Show category buttons + Others
     addCategoryButtons();
+  }
+
+  /** Reset chat to initial welcome screen */
+  function resetChat() {
+    // Clear messages
+    messagesEl.innerHTML = "";
+    
+    // Hide input area
+    inputArea.style.display = "none";
+    inputEl.value = "";
+    
+    // Generate new session ID
+    sessionId = generateId();
+    sessionStorage.setItem("chatbot_session", sessionId);
+    
+    // Show welcome screen
+    showWelcome();
   }
 
   /** Render main category buttons + "Others" */
@@ -376,6 +393,7 @@
 
   toggleBtn.addEventListener("click", toggleChat);
   closeBtn.addEventListener("click", toggleChat);
+  homeBtn.addEventListener("click", resetChat);
 
   sendBtn.addEventListener("click", () => {
     sendMessage(inputEl.value);

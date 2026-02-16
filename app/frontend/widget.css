@@ -175,6 +175,26 @@ html, body {
   background: rgba(255,255,255,0.3);
 }
 
+.chat-header .home-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.chat-header .home-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
 /* ── Disclaimer ─────────────────────────────────────────────── */
 
 .disclaimer {

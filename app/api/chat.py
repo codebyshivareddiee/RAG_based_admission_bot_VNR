@@ -149,22 +149,44 @@ def _check_rate_limit(ip: str) -> None:
     _rate_buckets[ip].append(now)
 
 
+def _detect_trend_request(message: str) -> bool:
+    """
+    Detect if user is asking for trend analysis / historical data.
+    Returns True if trend-related keywords are found.
+    """
+    trend_keywords = [
+        "trend", "history", "historical", "all years", "over years",
+        "analysis", "analyze", "analyse", "past years", "progression",
+        "how has", "changed over", "comparison", "compare years",
+        "how it's been", "how its been", "show me all", "from past",
+        "previous years", "over the years", "year by year", "yearly",
+        "show trend", "give trend", "show all years", "all available years"
+    ]
+    msg_lower = message.lower()
+    return any(keyword in msg_lower for keyword in trend_keywords)
+
+
 def _build_multi_branch_reply(
     branches: list[str],
     category: str,
     gender: str,
     rank: int | None = None,
+    show_trend: bool = False,
 ) -> str:
     """
     Query cutoff/eligibility for one or more branches and build
     a combined response.
+    
+    Args:
+        show_trend: If True, shows all years with trend analysis.
+                    If False, shows only latest year.
     """
     parts: list[str] = []
     for b in branches:
         if rank is not None:
             result = check_eligibility(rank, b, category, year=None, gender=gender)
         else:
-            result = get_cutoff(b, category, year=None, gender=gender)
+            result = get_cutoff(b, category, year=None, gender=gender, show_trend=show_trend)
         parts.append(result.message)
 
     if len(parts) == 1:
@@ -498,11 +520,13 @@ async def chat(req: ChatRequest, request: Request):
                     if isinstance(branches_list, str):
                         branches_list = [branches_list]
                     
+                    show_trend = collected.get("_show_trend", False)
                     reply = _build_multi_branch_reply(
                         branches_list, 
                         collected["category"], 
                         collected["gender"], 
-                        extracted_rank
+                        extracted_rank,
+                        show_trend=show_trend
                     )
                     
                     _session_history[session_id].append({"role": "user", "content": user_msg})
@@ -520,8 +544,11 @@ async def chat(req: ChatRequest, request: Request):
                     return ChatResponse(reply=ask, intent="cutoff", session_id=session_id)
             else:
                 # User wants different details - start fresh
+                show_trend_flag = collected.get("_show_trend", False)  # Preserve trend flag
                 collected.clear()
                 collected["_flow"] = "eligibility"
+                if show_trend_flag:
+                    collected["_show_trend"] = True
                 collected["_waiting_for"] = "branch"
                 
                 avail_branches = list_branches()
@@ -575,7 +602,8 @@ async def chat(req: ChatRequest, request: Request):
                 _session_pending_intent.pop(session_id, None)
 
                 reply = "No worries! Here are the cutoff ranks for reference:\n\n"
-                reply += _build_multi_branch_reply(branches_list, category, gender, rank=None)
+                show_trend = collected.get("_show_trend", False)
+                reply += _build_multi_branch_reply(branches_list, category, gender, rank=None, show_trend=show_trend)
                 _session_history[session_id].append({"role": "user", "content": user_msg})
                 _session_history[session_id].append({"role": "assistant", "content": reply})
                 return ChatResponse(
@@ -630,9 +658,10 @@ async def chat(req: ChatRequest, request: Request):
 
         has_rank = "rank" in collected
         rank_val = collected.get("rank")
+        show_trend = collected.get("_show_trend", False)
 
         # Query each branch and combine results
-        reply = _build_multi_branch_reply(branches_list, category, gender, rank_val if has_rank else None)
+        reply = _build_multi_branch_reply(branches_list, category, gender, rank_val if has_rank else None, show_trend=show_trend)
 
         _session_history[session_id].append({"role": "user", "content": user_msg})
         _session_history[session_id].append({"role": "assistant", "content": reply})
@@ -693,6 +722,29 @@ async def chat(req: ChatRequest, request: Request):
             session_id=session_id,
         )
 
+    # ── Check for follow-up trend request ─────────────────────
+    # If user asks for trend after receiving normal cutoff, reuse previous query
+    if _detect_trend_request(user_msg) and session_id in _session_last_cutoff:
+        last = _session_last_cutoff[session_id]
+        branches_list = last["branch"] if isinstance(last["branch"], list) else [last["branch"]]
+        
+        reply = _build_multi_branch_reply(
+            branches_list,
+            last["category"],
+            last["gender"],
+            rank=None,
+            show_trend=True
+        )
+        
+        _session_history[session_id].append({"role": "user", "content": user_msg})
+        _session_history[session_id].append({"role": "assistant", "content": reply})
+        return ChatResponse(
+            reply=reply,
+            intent="cutoff",
+            session_id=session_id,
+            sources=["VNRVJIET Cutoff Database"],
+        )
+
     # ── Extract structured entities ───────────────────────────
     rank = extract_rank(user_msg)
     branch = extract_branch(user_msg)
@@ -713,6 +765,12 @@ async def chat(req: ChatRequest, request: Request):
 
         # Pre-fill whatever we already extracted from this message
         collected = {"_flow": flow}
+        
+        # Detect if user is asking for trend analysis
+        show_trend = _detect_trend_request(user_msg)
+        if show_trend:
+            collected["_show_trend"] = True
+        
         # Extract multiple branches
         branches_extracted = extract_branches(user_msg)
         if branches_extracted:
@@ -734,7 +792,8 @@ async def chat(req: ChatRequest, request: Request):
             b_list = collected["branch"]
             if isinstance(b_list, str):
                 b_list = [b_list]
-            cutoff_info = _build_multi_branch_reply(b_list, category, gender, rank if is_eligibility else None)
+            show_trend = collected.get("_show_trend", False)
+            cutoff_info = _build_multi_branch_reply(b_list, category, gender, rank if is_eligibility else None, show_trend=show_trend)
             sources.append("VNRVJIET Cutoff Database")
         else:
             # Check if we can reuse recent cutoff data for eligibility query
