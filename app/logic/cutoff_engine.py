@@ -34,6 +34,15 @@ except Exception as e:
     traceback.print_exc()
     raise
 
+logger.info("cutoff_engine.py: importing config...")
+try:
+    from app.config import get_settings
+    logger.info("cutoff_engine.py: config OK")
+except Exception as e:
+    logger.error(f"cutoff_engine.py: FAILED config: {e}")
+    traceback.print_exc()
+    raise
+
 
 @dataclass
 class CutoffResult:
@@ -49,6 +58,45 @@ class CutoffResult:
     all_results: list[dict] = field(default_factory=list)
 
 
+def _get_department_url(branch: str) -> str | None:
+    """
+    Get the department URL for a given branch.
+    Maps normalized branch codes to department pages.
+    """
+    settings = get_settings()
+    dept_urls = settings.DEPARTMENT_URLS
+    
+    # Mapping of branch codes to department URL keys
+    branch_mapping = {
+        # CSE variants
+        "CSE": "cse",
+        "CSB": "cse",  # CS & Business Systems under CSE
+        
+        # AI/ML/IoT specializations
+        "CSE-CSM": "cse_aiml_iot",  # AI & ML
+        "CSE-CSO": "cse_aiml_iot",  # IoT
+        "AUT": "cse_aiml_iot",      # Robotics & AI
+        
+        # Data Science/Cyber Security
+        "CSE-CSD": "cse_ds_cys",  # Data Science
+        "AID": "cse_ds_cys",       # AI & Data Science
+        "CSE-CSC": "cse_ds_cys",  # Cyber Security
+        
+        # Other departments
+        "IT": "it",
+        "ME": "mech",
+        "CIV": "civil",
+        "ECE": "ece",
+        "EEE": "eee",
+        "EIE": "eie",
+    }
+    
+    dept_key = branch_mapping.get(branch)
+    if dept_key:
+        return dept_urls.get(dept_key)
+    return None
+
+
 def _normalise_branch(raw: str) -> str:
     """Best-effort normalisation of branch names."""
     mapping = {
@@ -58,8 +106,10 @@ def _normalise_branch(raw: str) -> str:
         "cs": "CSE",
         "ece": "ECE",
         "electronics": "ECE",
+        "electronics communication": "ECE",
         "eee": "EEE",
         "electrical": "EEE",
+        "electrical electronics": "EEE",
         "it": "IT",
         "information technology": "IT",
         "mech": "ME",
@@ -67,28 +117,57 @@ def _normalise_branch(raw: str) -> str:
         "mechanical": "ME",
         "civil": "CIV",
         "civ": "CIV",
-        "ai": "AID",
+        
+        # AI & ML variants (CSE-CSM)
         "ai ml": "CSE-CSM",
         "ai & ml": "CSE-CSM",
         "aiml": "CSE-CSM",
-        "artificial intelligence": "CSE-CSM",
+        "ai and ml": "CSE-CSM",
+        "artificial intelligence ml": "CSE-CSM",
+        "artificial intelligence machine learning": "CSE-CSM",
+        "artificial intelligence and machine learning": "CSE-CSM",
+        "machine learning": "CSE-CSM",
+        
+        # AI & Data Science variants (AID)
         "ai & ds": "AID",
         "ai ds": "AID",
         "aids": "AID",
+        "ai and ds": "AID",
         "ai & data science": "AID",
+        "ai and data science": "AID",
+        "artificial intelligence data science": "AID",
+        "artificial intelligence and data science": "AID",
+        
+        # Data Science variants (CSE-CSD)
         "data science": "CSE-CSD",
         "ds": "CSE-CSD",
         "csd": "CSE-CSD",
         "cse-csd": "CSE-CSD",
+        "cse csd": "CSE-CSD",
+        "cse (data science)": "CSE-CSD",
+        
+        # AI/ML/IoT combined
         "csm": "CSE-CSM",
         "cse-csm": "CSE-CSM",
+        "cse csm": "CSE-CSM",
+        "cse (ai & ml)": "CSE-CSM",
+        
+        # Cyber Security
         "csc": "CSE-CSC",
         "cse-csc": "CSE-CSC",
+        "cse csc": "CSE-CSC",
         "cyber security": "CSE-CSC",
+        "cys": "CSE-CSC",
+        "cybersecurity": "CSE-CSC",
+        
+        # IoT
         "cso": "CSE-CSO",
         "cse-cso": "CSE-CSO",
+        "cse cso": "CSE-CSO",
         "iot": "CSE-CSO",
         "internet of things": "CSE-CSO",
+        
+        # Business Systems
         "csb": "CSB",
         "cs business": "CSB",
         "business systems": "CSB",
@@ -269,21 +348,32 @@ def get_cutoff(
                     f"Competition has eased slightly, making admission more accessible than before."
                 )
 
+        # Add department URL suggestion
+        dept_url = _get_department_url(branch)
+        dept_link = f"\n\n🔗 **Explore {branch} Department:** {dept_url}" if dept_url else ""
+        
         message = (
             f"Here are the cutoff ranks for **{branch}** under **{category}** "
             f"category ({gender}, {quota} quota) across all available years:\n\n"
             + "\n".join(year_lines)
             + trend_analysis
+            + dept_link
             + "\n\n⚠️ _These are based on previous year data and cutoffs may vary._"
         )
     else:
         # Show only the latest year (default behavior)
         year_label = f"**{best['year']}**" if best.get('year') else "the latest year"
+        
+        # Add department URL suggestion
+        dept_url = _get_department_url(branch)
+        dept_link = f"\n\n🔗 **Explore {branch} Department:** {dept_url}" if dept_url else ""
+        
         message = (
             f"The closing cutoff rank for **{best['branch']}** under **{best['category']}** "
             f"category in {year_label}, Round {best.get('round', 1)} "
-            f"({best['quota']} quota) is **{best['cutoff_rank']:,}**.\n\n"
-            f"⚠️ _This is based on previous year data and cutoffs may vary._"
+            f"({best['quota']} quota) is **{best['cutoff_rank']:,}**."
+            + dept_link
+            + "\n\n⚠️ _This is based on previous year data and cutoffs may vary._"
         )
 
     return CutoffResult(
@@ -319,13 +409,18 @@ def check_eligibility(
 
     result.eligible = rank <= result.cutoff_rank
 
+    # Add department URL suggestion
+    dept_url = _get_department_url(result.branch)
+    dept_link = f"\n\n🔗 **Explore {result.branch} Department:** {dept_url}" if dept_url else ""
+
     if result.eligible:
         result.message = (
             f"With a rank of **{rank:,}**, you are **eligible** for "
             f"{result.branch} under {result.category} category ({result.gender}) "
             f"based on Year {result.year}, Round {result.round} ({result.quota} quota) cutoffs. "
-            f"The closing rank was **{result.cutoff_rank:,}**.\n\n"
-            f"⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
+            f"The closing rank was **{result.cutoff_rank:,}**."
+            + dept_link
+            + "\n\n⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
         )
     else:
         result.message = (
@@ -333,8 +428,9 @@ def check_eligibility(
             f"{result.branch} under {result.category} category ({result.gender}) "
             f"based on Year {result.year}, Round {result.round} ({result.quota} quota) cutoffs. "
             f"The closing rank was **{result.cutoff_rank:,}**. "
-            f"Your rank needs to be ≤ {result.cutoff_rank:,} for this seat.\n\n"
-            f"⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
+            f"Your rank needs to be ≤ {result.cutoff_rank:,} for this seat."
+            + dept_link
+            + "\n\n⚠️ _This is based on previous year data. Actual cutoffs may vary this year._"
         )
 
     return result

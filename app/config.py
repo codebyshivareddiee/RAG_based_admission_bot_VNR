@@ -80,7 +80,7 @@ class Settings:
         "home": "https://vnrvjiet.ac.in/",
         "admissions": "https://vnrvjiet.ac.in/admission/",
         "international_admissions": "https://vnrvjiet.ac.in/international-admissions/",
-        "departments": "https://vnrvjiet.ac.in/departments-and-examinations/",
+        "departments": "https://vnrvjiet.ac.in/department/",
         
         # Academic & Support
         "syllabus": "https://vnrvjiet.ac.in/syllabus-books/",
@@ -101,6 +101,22 @@ class Settings:
         "scholarship": "https://www.vnrvjiet.ac.in/admissions/scholarships",
         "about": "https://www.vnrvjiet.ac.in/about",
         "general": "https://vnrvjiet.ac.in/",
+    }
+    
+    # Department-specific URLs
+    DEPARTMENT_URLS: dict[str, str] = {
+        "departments_overview": "https://vnrvjiet.ac.in/department/",
+        "cse": "https://vnrvjiet.ac.in/cse/",
+        "cse_aiml_iot": "https://vnrvjiet.ac.in/cse-aiml-and-iot/",
+        "cse_ds_cys": "https://vnrvjiet.ac.in/cse-ds-and-cys/",
+        "it": "https://vnrvjiet.ac.in/it/",
+        "mech": "https://vnrvjiet.ac.in/mech/",
+        "civil": "https://vnrvjiet.ac.in/civil/",
+        "ece": "https://vnrvjiet.ac.in/ece/",
+        "eee": "https://vnrvjiet.ac.in/eee/",
+        "eie": "https://vnrvjiet.ac.in/eie/",
+        "physics": "https://vnrvjiet.ac.in/physics/",
+        "mathematics": "https://vnrvjiet.ac.in/mathematics-and-management-sciences/",
     }
 
 

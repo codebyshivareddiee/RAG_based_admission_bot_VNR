@@ -271,8 +271,28 @@ def _detect_url_category(query: str) -> str:
     if any(kw in query_lower for kw in ["calendar", "schedule", "academic year", "semester date", "exam date", "holiday"]):
         return "academic_calendar"
     
-    # Departments/exams
-    if any(kw in query_lower for kw in ["department", "examination", "exam", "branch", "faculty", "hod", "course structure"]):
+    # Specific department pages
+    if any(kw in query_lower for kw in ["cse", "computer science", "csbs", "cs business"]):
+        return "dept_cse"
+    if any(kw in query_lower for kw in ["ai", "ml", "aiml", "artificial intelligence", "machine learning", "iot", "internet of things", "robotics"]):
+        return "dept_cse_aiml_iot"
+    if any(kw in query_lower for kw in ["data science", "ds", "aids", "ai ds", "cyber security", "cys"]):
+        return "dept_cse_ds_cys"
+    if "information technology" in query_lower or query_lower.startswith("it ") or " it" in query_lower:
+        return "dept_it"
+    if any(kw in query_lower for kw in ["mechanical", "mech"]):
+        return "dept_mech"
+    if "civil" in query_lower:
+        return "dept_civil"
+    if any(kw in query_lower for kw in ["ece", "electronics communication"]):
+        return "dept_ece"
+    if any(kw in query_lower for kw in ["eee", "electrical electronics"]):
+        return "dept_eee"
+    if any(kw in query_lower for kw in ["eie", "instrumentation"]):
+        return "dept_eie"
+    
+    # General departments/exams (when asking about all departments)
+    if any(kw in query_lower for kw in ["all departments", "department list", "examination", "exam", "faculty", "hod"]):
         return "departments"
     
     # Placement keywords
@@ -567,7 +587,13 @@ async def chat(req: ChatRequest, request: Request):
             try:
                 # Determine which URL to fetch
                 url_category = _detect_url_category(original_query)
-                url_to_fetch = settings.VNRVJIET_WEBSITE_URLS.get(url_category, settings.VNRVJIET_WEBSITE_URLS["general"])
+                
+                # Check if it's a department-specific URL
+                if url_category.startswith("dept_"):
+                    dept_key = url_category.replace("dept_", "")
+                    url_to_fetch = settings.DEPARTMENT_URLS.get(dept_key, settings.VNRVJIET_WEBSITE_URLS["departments"])
+                else:
+                    url_to_fetch = settings.VNRVJIET_WEBSITE_URLS.get(url_category, settings.VNRVJIET_WEBSITE_URLS["general"])
                 
                 logger.info(f"Fetching website for query '{original_query}': {url_to_fetch}")
                 
