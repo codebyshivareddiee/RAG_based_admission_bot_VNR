@@ -14,7 +14,7 @@ If anyone claims they can get you a seat, please report the fraud immediately:
 - **🚨 Fraud Reporting:** +91 9391982884 (ONLY for reporting illegal agents/scams)
 - **Email:** postbox@vnrvjiet.ac.in
 
-**Note:** For general admission inquiries, use admissions@vnrvjiet.ac.in or call +91-40-2304 2758.
+**Note:** For general admission inquiries, use  admissionsenquiry@vnrvjiet.in or call +91-40-2304 2758.
 
 **Legal action will be taken against fraudsters.**
 
@@ -67,7 +67,7 @@ The chatbot implements strict security measures to protect sensitive contact inf
 - Protected by explicit system prompt rules
 
 **For all standard queries, the chatbot provides:**
-- General email: admissions@vnrvjiet.ac.in
+- General email:  admissionsenquiry@vnrvjiet.in
 - Main office: +91-40-2304 2758/59/60
 - Website: www.vnrvjiet.ac.in
 
