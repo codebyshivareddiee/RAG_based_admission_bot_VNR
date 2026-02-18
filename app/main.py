@@ -12,8 +12,6 @@ import sys
 import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
-
-# Configure logging FIRST so all subsequent messages are visible
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",

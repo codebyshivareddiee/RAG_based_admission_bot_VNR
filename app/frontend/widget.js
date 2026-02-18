@@ -16,10 +16,14 @@
   // ── DOM References ───────────────────────────────────────────
   const toggleBtn = document.getElementById("chat-toggle");
   const container = document.getElementById("chat-container");
-  const closeBtn = document.getElementById("chat-close");  const homeBtn = document.getElementById("chat-home");  const messagesEl = document.getElementById("chat-messages");
+  const closeBtn = document.getElementById("chat-close");
+  const homeBtn = document.getElementById("home-btn");
+  const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
   const inputArea = document.getElementById("chat-input-area");
+  const welcomePopup = document.getElementById("welcome-popup");
+  const popupClose = document.getElementById("popup-close");
   let typingEl = null;
 
   // ── State ────────────────────────────────────────────────────
@@ -27,6 +31,9 @@
   let isSending = false;
   let sessionId = sessionStorage.getItem("chatbot_session") || generateId();
   sessionStorage.setItem("chatbot_session", sessionId);
+  
+  // Chat history is preserved in this session for context-aware responses
+  // The backend automatically uses conversation history for better answers
 
   // ── Helpers ──────────────────────────────────────────────────
   function generateId() {
@@ -40,17 +47,13 @@
     });
   }
 
-  /** Minimal Markdown → HTML (headings, bold, italic, lists, links, line breaks) */
+  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks) */
   function renderMarkdown(text) {
     let html = text
       // Headings: ### h3, ## h2, # h1 (must be at line start)
       .replace(/^###\s+(.+)$/gm, "<strong style='font-size:1.05em;display:block;margin:8px 0 4px;'>$1</strong>")
       .replace(/^##\s+(.+)$/gm, "<strong style='font-size:1.1em;display:block;margin:8px 0 4px;'>$1</strong>")
       .replace(/^#\s+(.+)$/gm, "<strong style='font-size:1.15em;display:block;margin:8px 0 4px;'>$1</strong>")
-      // Markdown links [text](url)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href='$2' target='_blank' rel='noopener noreferrer' style='color:#1a237e;text-decoration:underline;'>$1</a>")
-      // Plain URLs (https:// or http://)
-      .replace(/(?<!href=['"]|src=['"])(\bhttps?:\/\/[^\s<]+)/g, "<a href='$1' target='_blank' rel='noopener noreferrer' style='color:#1a237e;text-decoration:underline;'>$1</a>")
       // Bold **text**
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       // Italic *text*
@@ -92,6 +95,24 @@
     }
   }
 
+  /** Open chat without toggling (for auto-popup) */
+  function openChat() {
+    if (!isOpen) {
+      isOpen = true;
+      container.classList.add("visible");
+      toggleBtn.classList.add("open");
+    }
+  }
+
+  /** Close chat */
+  function closeChat() {
+    if (isOpen) {
+      isOpen = false;
+      container.classList.remove("visible");
+      toggleBtn.classList.remove("open");
+    }
+  }
+
   // ── Category definitions with follow-up questions ──────────
   const CATEGORIES = {
     "Admission Process & Eligibility": [
@@ -130,7 +151,7 @@
 
   function showWelcome() {
     addBotMessage(
-      `Hello! 👋 Welcome to the **${COLLEGE}** admissions assistant.\n\n` +
+      `Hello! 👋 Welcome to the **${COLLEGE}** assistant.\n\n` +
         "I can help you with the following topics. Please select one:"
     );
 
@@ -138,43 +159,20 @@
     addCategoryButtons();
   }
 
-  /** Reset chat to initial welcome screen */
-  function resetChat() {
-    // Clear server-side session data
-    const oldSessionId = sessionId;
-    fetch(`${API_BASE}/api/clear-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        message: "clear",  // Required by ChatRequest model
-        session_id: oldSessionId 
-      }),
-    }).catch((err) => {
-      console.warn("Failed to clear server session:", err);
-      // Continue with client-side reset anyway
-    });
-    
-    // Clear messages with fade effect
+  /** Return to home screen while preserving chat history */
+  function returnToHome() {
+    // Clear visual messages
     messagesEl.innerHTML = "";
-    messagesEl.classList.add("reset-animation");
-    
-    // Remove animation class after it completes
-    setTimeout(() => {
-      messagesEl.classList.remove("reset-animation");
-    }, 400);
     
     // Hide input area
     inputArea.style.display = "none";
     inputEl.value = "";
     
-    // Generate new session ID
-    sessionId = generateId();
-    sessionStorage.setItem("chatbot_session", sessionId);
+    // Keep the same session ID to preserve chat history
+    // This allows the model to use previous conversation context
     
     // Show welcome screen
     showWelcome();
-    
-    console.log("Chat reset - New session:", sessionId);
   }
 
   /** Render main category buttons + "Others" */
@@ -198,7 +196,8 @@
       const btn = document.createElement("button");
       btn.className = "category-btn";
       btn.innerHTML = `<span class="cat-icon">${icons[i]}</span><span class="cat-label">${cat}</span>`;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         wrapper.remove();
         addUserMessage(cat);
         addBotMessage(`Here are some questions about **${cat}**. Pick one or type your own:`);
@@ -212,7 +211,8 @@
     const othersBtn = document.createElement("button");
     othersBtn.className = "category-btn others-btn";
     othersBtn.innerHTML = `<span class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span><span class="cat-label">Others</span>`;
-    othersBtn.addEventListener("click", () => {
+    othersBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
       wrapper.remove();
       addUserMessage("Others");
       addBotMessage("Here are some common topics, or feel free to type your own question:");
@@ -237,7 +237,8 @@
     questions.forEach((q) => {
       const btn = document.createElement("button");
       btn.textContent = q;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         wrapper.remove();
         sendMessage(q);
       });
@@ -248,7 +249,8 @@
     const customBtn = document.createElement("button");
     customBtn.className = "custom-btn";
     customBtn.textContent = "✏️ Type my own question";
-    customBtn.addEventListener("click", () => {
+    customBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
       wrapper.remove();
       addBotMessage(`Sure, type your question about **${category}** below:`);
       inputEl.focus();
@@ -301,7 +303,8 @@
     options.forEach((opt) => {
       const btn = document.createElement("button");
       btn.textContent = opt;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         wrapper.remove(); // remove chips after click
         sendMessage(opt);
       });
@@ -313,51 +316,6 @@
     scrollToBottom();
   }
 
-  /** Add Yes/No buttons for web search permission */
-  function addWebSearchButtons() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "message bot";
-
-    const btnContainer = document.createElement("div");
-    btnContainer.className = "web-search-buttons";
-
-    // Yes button
-    const yesBtn = document.createElement("button");
-    yesBtn.className = "ws-btn ws-yes";
-    yesBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Yes, search website</span>';
-    yesBtn.addEventListener("click", () => {
-      wrapper.remove();
-      addUserMessage("Yes");
-      sendMessageWithWebSearch("yes");
-    });
-
-    // No button
-    const noBtn = document.createElement("button");
-    noBtn.className = "ws-btn ws-no";
-    noBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>No, thanks</span>';
-    noBtn.addEventListener("click", () => {
-      wrapper.remove();
-      addUserMessage("No");
-      sendMessage("no");
-    });
-
-    btnContainer.appendChild(yesBtn);
-    btnContainer.appendChild(noBtn);
-    wrapper.appendChild(btnContainer);
-    messagesEl.appendChild(wrapper);
-    scrollToBottom();
-  }
-
-  /** Check if bot response is asking for web search permission */
-  function isWebSearchPermissionRequest(text) {
-    const lowerText = text.toLowerCase();
-    return (
-      lowerText.includes("search our official") &&
-      lowerText.includes("website") &&
-      (lowerText.includes("would you like") || lowerText.includes("reply"))
-    );
-  }
-
   function showTyping() {
     if (typingEl) return; // already showing
     typingEl = document.createElement("div");
@@ -365,17 +323,6 @@
     typingEl.className = "typing-indicator active";
     typingEl.innerHTML =
       '<div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-    messagesEl.appendChild(typingEl);
-    scrollToBottom();
-  }
-
-  function showWebSearchLoading() {
-    if (typingEl) return; // already showing
-    typingEl = document.createElement("div");
-    typingEl.id = "typing-indicator";
-    typingEl.className = "typing-indicator active web-search";
-    typingEl.innerHTML =
-      '<div class="bubble"><div class="web-search-spinner"></div><span class="search-text">Searching website...</span></div>';
     messagesEl.appendChild(typingEl);
     scrollToBottom();
   }
@@ -398,76 +345,77 @@
     });
   }
 
-  // ── API Communication ────────────────────────────────────────
+  // ── Auto-Popup Welcome Messages ──────────────────────────────
 
-  async function sendMessageWithWebSearch(text) {
-    if (!text || !text.trim() || isSending) return;
+  /**
+   * Display welcome popup bubble next to chatbot icon
+   * Triggers only once per session
+   */
+  async function showAutoWelcomeMessages() {
+    const POPUP_SHOWN_KEY = "chatbot_popup_shown";
+    
+    // Check if popup was already shown in this session
+    if (sessionStorage.getItem(POPUP_SHOWN_KEY)) {
+      return;
+    }
 
-    const userText = text.trim();
-    inputEl.value = "";
-    inputEl.disabled = true;
-    sendBtn.disabled = true;
-    isSending = true;
+    // Mark as shown for this session
+    sessionStorage.setItem(POPUP_SHOWN_KEY, "true");
 
-    showWebSearchLoading();
+    // Wait 3 milliseconds after page load
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    try {
-      const response = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userText,
-          session_id: sessionId,
-        }),
-      });
+    // Show the popup bubble
+    showWelcomePopup();
 
-      if (response.status === 429) {
-        hideTyping();
-        addBotMessage(
-          "You're sending messages too quickly. Please wait a moment and try again."
-        );
-        return;
-      }
+    // Auto-hide popup after 6 seconds if no interaction
+    setTimeout(() => {
+      hideWelcomePopup();
+    }, 6000);
+  }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      hideTyping();
-
-      sessionId = data.session_id || sessionId;
-      sessionStorage.setItem("chatbot_session", sessionId);
-
-      addBotMessage(data.reply);
-
-      // Source citations
-      if (data.sources && data.sources.length > 0) {
-        const srcText =
-          "📄 *Sources: " + data.sources.join(", ") + "*";
-        const bubbles = messagesEl.querySelectorAll(".message.bot .bubble");
-        if (bubbles.length > 0) {
-          const last = bubbles[bubbles.length - 1];
-          const srcSpan = document.createElement("div");
-          srcSpan.style.cssText =
-            "font-size:10px;color:#888;margin-top:6px;font-style:italic;";
-          srcSpan.textContent = "📄 Sources: " + data.sources.join(", ");
-          last.appendChild(srcSpan);
-        }
-      }
-    } catch (err) {
-      hideTyping();
-      console.error("Chat error:", err);
-      addBotMessage(
-        "Sorry, I'm having trouble connecting right now. Please try again in a moment."
-      );
-    } finally {
-      isSending = false;
-      inputEl.disabled = false;
-      sendBtn.disabled = false;
-      inputEl.focus();
+  /**
+   * Show the welcome popup bubble
+   */
+  function showWelcomePopup() {
+    if (welcomePopup) {
+      welcomePopup.style.display = '';
+      welcomePopup.classList.add('visible');
     }
   }
+
+  /**
+   * Hide the welcome popup bubble
+   */
+  function hideWelcomePopup() {
+    if (welcomePopup) {
+      welcomePopup.classList.remove('visible');
+      // Force hide with inline style as fallback
+      setTimeout(() => {
+        if (welcomePopup && !welcomePopup.classList.contains('visible')) {
+          welcomePopup.style.display = 'none';
+        }
+      }, 400);
+    }
+  }
+
+  /**
+   * Open chat from popup - shows welcome screen
+   */
+  function openChatFromPopup() {
+    // Hide the popup
+    hideWelcomePopup();
+    
+    // Open the chat
+    openChat();
+    
+    // Show welcome if first time or no messages
+    if (messagesEl.children.length === 0) {
+      showWelcome();
+    }
+  }
+
+  // ── API Communication ────────────────────────────────────────
 
   async function sendMessage(text) {
     if (!text || !text.trim() || isSending) return;
@@ -509,13 +457,7 @@
       sessionId = data.session_id || sessionId;
       sessionStorage.setItem("chatbot_session", sessionId);
 
-      // Check if this is a web search permission request
-      if (isWebSearchPermissionRequest(data.reply)) {
-        addBotMessage(data.reply);
-        addWebSearchButtons();
-      } else {
-        addBotMessage(data.reply);
-      }
+      addBotMessage(data.reply);
 
       // Source citations
       if (data.sources && data.sources.length > 0) {
@@ -546,13 +488,42 @@
     }
   }
 
+
+
   // ── Event Listeners ──────────────────────────────────────────
 
   toggleBtn.addEventListener("click", toggleChat);
   closeBtn.addEventListener("click", toggleChat);
-  homeBtn.addEventListener("click", resetChat);
 
-  sendBtn.addEventListener("click", () => {
+  // Close popup button - simple and direct
+  if (popupClose) {
+    popupClose.onclick = function(e) {
+      e.stopPropagation();
+      hideWelcomePopup();
+    };
+  }
+
+  // Popup message click to open chat
+  if (welcomePopup) {
+    const popupMessage = welcomePopup.querySelector('.popup-message');
+    if (popupMessage) {
+      popupMessage.onclick = function(e) {
+        // Don't trigger if clicking close button
+        if (e.target.id === 'popup-close' || e.target.closest('#popup-close')) {
+          return;
+        }
+        openChatFromPopup();
+      };
+    }
+  }
+  
+  homeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    returnToHome();
+  });
+
+  sendBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     sendMessage(inputEl.value);
   });
 
@@ -563,7 +534,33 @@
     }
   });
 
+  // Close widget when clicking outside (improved to prevent accidental closures)
+  document.addEventListener("click", (e) => {
+    if (!isOpen) return;
+    
+    // Check if click is outside both the container and toggle button
+    const clickedInsideContainer = container.contains(e.target);
+    const clickedToggleBtn = toggleBtn.contains(e.target);
+    const clickedInsidePopup = welcomePopup && welcomePopup.contains(e.target);
+    
+    // Only close if click is truly outside all chat-related elements
+    if (!clickedInsideContainer && !clickedToggleBtn && !clickedInsidePopup) {
+      isOpen = false;
+      container.classList.remove("visible");
+      toggleBtn.classList.remove("open");
+    }
+  });
+
   // ── Accessibility ────────────────────────────────────────────
   toggleBtn.setAttribute("aria-label", "Open chat");
   closeBtn.setAttribute("aria-label", "Close chat");
+
+  // ── Auto-Popup on Page Load ──────────────────────────────────
+  // Trigger auto-welcome messages after page loads
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", showAutoWelcomeMessages);
+  } else {
+    // DOM already loaded
+    showAutoWelcomeMessages();
+  }
 })();

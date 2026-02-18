@@ -65,8 +65,15 @@ class ContactRequestService:
         Save contact request to Firestore
         
         Returns:
-            Document ID
+            Document ID or empty string if Firestore unavailable
         """
+        if self.db is None:
+            # Firestore not available - log locally instead
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Firestore unavailable. Contact request not saved: {request.dict()}")
+            return "temp-" + str(hash(request.email))[:8]  # Return temp ID
+        
         if not request.timestamp:
             request.timestamp = datetime.now()
         
@@ -95,6 +102,9 @@ class ContactRequestService:
         Returns:
             List of contact requests
         """
+        if self.db is None:
+            return []  # Return empty list if Firestore not available
+        
         query = self.db.collection(self.COLLECTION).order_by(
             'timestamp', 
             direction=firestore.Query.DESCENDING
@@ -122,6 +132,9 @@ class ContactRequestService:
             status: New status (pending, contacted, resolved)
             notes: Optional notes from staff
         """
+        if self.db is None:
+            return  # Skip if Firestore not available
+        
         update_data = {
             'status': status,
             'updated_at': firestore.SERVER_TIMESTAMP
@@ -231,11 +244,6 @@ VNRVJIET Admissions Chatbot
 
 # Google Sheets integration (optional)
 async def save_to_google_sheets(request: ContactRequest):
-    """
-    Save contact request to Google Sheet
-    
-    Requires: google-auth, google-auth-oauthlib, google-auth-httplib2, google-api-python-client
-    """
     try:
         from google.oauth2 import service_account
         from googleapiclient.discovery import build

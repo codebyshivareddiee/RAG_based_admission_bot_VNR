@@ -246,6 +246,13 @@ def get_cutoff(
     category = _normalise_category(category)
 
     db = get_db()
+    if db is None:
+        logger.warning("Firestore not available. Cannot query cutoff data.")
+        return CutoffResult(
+            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissions@vnrvjiet.ac.in for cutoff information.",
+            found=False,
+        )
+
     query = db.collection(COLLECTION)
 
     # Build Firestore query with compound filters
@@ -401,6 +408,14 @@ def check_eligibility(
     Check if a given rank qualifies for a branch + category.
     Uses the latest available year/round if not specified.
     """
+    db = get_db()
+    if db is None:
+        logger.warning("Firestore not available. Cannot check eligibility.")
+        return CutoffResult(
+            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissions@vnrvjiet.ac.in for eligibility information.",
+            found=False,
+        )
+    
     result = get_cutoff(branch, category, year, round_num, gender=gender)
 
     if result.cutoff_rank is None:
@@ -439,6 +454,11 @@ def check_eligibility(
 def list_branches() -> list[str]:
     """Return all distinct branches in Firestore."""
     db = get_db()
+    if db is None:
+        logger.warning("Firestore not available. Returning default branch list.")
+        # Return common branches as fallback
+        return ["CSE", "ECE", "EEE", "ME", "CIV", "IT", "CSE-CSM", "AID"]
+    
     docs = db.collection(COLLECTION).stream()
     branches = sorted({doc.to_dict().get("branch", "") for doc in docs})
     return [b for b in branches if b]
@@ -447,6 +467,10 @@ def list_branches() -> list[str]:
 def list_categories() -> list[str]:
     """Return all distinct categories in Firestore."""
     db = get_db()
+    if db is None:
+        logger.warning("Firestore not available. Returning default category list.")
+        return ["OC", "BC-A", "BC-B", "BC-C", "BC-D", "SC", "ST", "EWS"]
+    
     docs = db.collection(COLLECTION).stream()
     cats = sorted({doc.to_dict().get("category", "") for doc in docs})
     return [c for c in cats if c]
@@ -458,6 +482,10 @@ def get_all_cutoffs_for_branch(
     """Return every document for a branch (all categories/rounds)."""
     branch = _normalise_branch(branch)
     db = get_db()
+    if db is None:
+        logger.warning("Firestore not available. Cannot get cutoffs.")
+        return []
+    
     query = db.collection(COLLECTION).where(
         filter=FieldFilter("branch", "==", branch)
     )

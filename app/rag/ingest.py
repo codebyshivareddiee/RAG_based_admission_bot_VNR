@@ -1,20 +1,3 @@
-"""
-Document ingestion pipeline for Pinecone vector database.
-
-Supports:
-- Plain text files (.txt)
-- PDF files (.pdf)
-- Markdown files (.md)
-- Word documents (.docx)
-- Excel files (.xlsx, .xls)
-- CSV files (.csv)
-
-Each chunk is stored with metadata:
-  { "college": "VNRVJIET", "source": "...", "year": 2025 }
-
-Usage:
-    python -m app.rag.ingest --docs-dir ./docs
-"""
 
 from __future__ import annotations
 

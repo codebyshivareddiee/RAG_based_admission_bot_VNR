@@ -51,35 +51,43 @@ def _init_firebase():
         logger.info(f"Firebase credentials path: {cred_path}")
         logger.info(f"Firebase credentials file exists: {cred_path.exists()}")
         if not cred_path.exists():
-            raise FileNotFoundError(
-                f"Firebase credentials file not found at {cred_path}.\n"
-                "Download it from Firebase Console → Project Settings → "
-                "Service Accounts → Generate New Private Key."
+            logger.warning(
+                f"Firebase credentials file not found at {cred_path}. "
+                "Cutoff queries will not work. RAG queries will still function."
             )
-        logger.info("Loading Firebase credentials...")
-        cred = credentials.Certificate(str(cred_path))
-        logger.info(f"Initialising Firebase app (project={settings.FIREBASE_PROJECT_ID})...")
-        firebase_admin.initialize_app(cred, {
-            "projectId": settings.FIREBASE_PROJECT_ID,
-        })
-        logger.info("Firebase app initialised successfully")
+            return False
+        try:
+            logger.info("Loading Firebase credentials...")
+            cred = credentials.Certificate(str(cred_path))
+            logger.info(f"Initialising Firebase app (project={settings.FIREBASE_PROJECT_ID})...")
+            firebase_admin.initialize_app(cred, {
+                "projectId": settings.FIREBASE_PROJECT_ID,
+            })
+            logger.info("Firebase app initialised successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to initialize Firebase: {e}. Cutoff queries will not work.")
+            return False
     else:
         logger.info("Firebase app already initialised, reusing")
+        return True
 
 
 def get_db():
-    """Return the Firestore client (singleton)."""
+    """Return the Firestore client (singleton). Returns None if Firebase is not available."""
     global _db
     if _db is None:
         logger.info("Creating Firestore client...")
         try:
-            _init_firebase()
+            success = _init_firebase()
+            if not success:
+                logger.warning("Firebase not available. Returning None.")
+                return None
             _db = firestore.client()
             logger.info("Firestore client created successfully")
         except Exception as e:
-            logger.error(f"Failed to create Firestore client: {e}")
-            traceback.print_exc()
-            raise
+            logger.warning(f"Failed to create Firestore client: {e}. Cutoff queries will not work.")
+            return None
     return _db
 
 

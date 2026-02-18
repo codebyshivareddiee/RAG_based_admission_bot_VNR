@@ -54,16 +54,17 @@ class RetrievalResult:
 def retrieve(
     query: str,
     top_k: int = 5,
-    score_threshold: float = 0.3,
+    score_threshold: float = 0.25,  # Lowered default for more inclusive retrieval
 ) -> RetrievalResult:
     """
     Embed the query and search Pinecone with a strict college filter.
+    Uses semantic search to find relevant documents across all categories.
 
     Parameters
     ----------
     query : str – user's question
-    top_k : int – maximum chunks to return
-    score_threshold : float – minimum similarity to include
+    top_k : int – maximum chunks to return (default: 5, can go higher for comprehensive search)
+    score_threshold : float – minimum similarity to include (default: 0.25 for inclusive retrieval)
 
     Returns
     -------

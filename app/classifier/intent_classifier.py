@@ -86,7 +86,9 @@ def _mentions_other_college(query: str) -> bool:
     safe = settings.COLLEGE_SHORT_NAME.lower()
     safe_full = settings.COLLEGE_NAME.lower()
     for college in _OTHER_COLLEGES:
-        if college in q and college not in safe and college not in safe_full:
+        # Use word boundary matching to avoid false positives like "mit" in "submit" or "nit" in "original"
+        pattern = r'\b' + re.escape(college) + r'\b'
+        if re.search(pattern, q, re.IGNORECASE) and college not in safe and college not in safe_full:
             return True
     return False
 

@@ -128,18 +128,6 @@ def _parse_rank(value: str) -> int | None:
 
 
 def _parse_cell_entry(cell_value: str) -> dict | None:
-    """
-    Parse a combined rank-category cell from pages 3-4.
-
-    Examples:
-      "145789-SC-III"        → rank=145789, category="SC-III", ph_type=None
-      "122215-OC_PHO_GEN"   → rank=122215, category="OC",     ph_type="PHO"
-      "3329-BC_A_PHH"       → rank=3329,   category="BC-A",   ph_type="PHH"
-      "37456 BC-B"           → rank=37456,  category="BC-B",   ph_type=None
-      "9171 - BC-B"          → rank=9171,   category="BC-B",   ph_type=None
-
-    Returns dict with keys: rank, category, ph_type (or None).
-    """
     text = str(cell_value).strip()
     if not text:
         return None

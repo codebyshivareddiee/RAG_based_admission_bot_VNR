@@ -1,10 +1,3 @@
-"""
-Google Sheets Integration for Contact Requests
-
-Saves contact requests directly to Google Sheets - perfect for admission staff
-who prefer familiar spreadsheet interface.
-"""
-
 from datetime import datetime
 from typing import Optional
 import os
