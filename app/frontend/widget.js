@@ -362,8 +362,8 @@
     // Mark as shown for this session
     sessionStorage.setItem(POPUP_SHOWN_KEY, "true");
 
-    // Wait 3 milliseconds after page load
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait 3 seconds after page load
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Show the popup bubble
     showWelcomePopup();

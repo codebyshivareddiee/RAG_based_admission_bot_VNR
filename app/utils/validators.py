@@ -48,26 +48,51 @@ def extract_rank(text: str) -> int | None:
 
 
 # ── Shared branch patterns (maps to Firestore branch codes) ──
+# Order matters: More specific patterns should come first to avoid false matches
 _BRANCH_PATTERNS = {
-    r"\b(?:cse|computer\s*science)\b": "CSE",
-    r"\b(?:ece|electronics)\b": "ECE",
-    r"\b(?:eee|electrical)\b": "EEE",
-    r"\b(?:it|information\s*technology)\b": "IT",
-    r"\b(?:mech|mechanical|me)\b": "ME",
-    r"\b(?:civil|civ)\b": "CIV",
-    r"\b(?:ai\s*(?:&|and)?\s*ml|aiml|artificial\s*intelligence)\b": "CSE-CSM",
-    r"\b(?:ai\s*(?:&|and)?\s*ds|aids|ai\s*(?:&|and)?\s*data\s*science)\b": "AID",
-    r"\baid\b": "AID",
-    r"\b(?:data\s*science|csd)\b": "CSE-CSD",
-    r"\b(?:csm|machine\s*learning)\b": "CSE-CSM",
-    r"\b(?:csc|cyber\s*security)\b": "CSE-CSC",
-    r"\b(?:cso|iot|internet\s*of\s*things)\b": "CSE-CSO",
-    r"\b(?:csb|business\s*systems|cs\s*business)\b": "CSB",
-    r"\b(?:aut|automobile)\b": "AUT",
-    r"\b(?:bio|biotech|biotechnology)\b": "BIO",
-    r"\beie\b": "EIE",
-    r"\b(?:rai|robotics)\b": "RAI",
+    # CSE variants with specializations (check these first before generic CSE)
+    r"\b(?:cse[\s\-]*(?:ai|artificial\s+intelligence)[\s\-&]*(?:ml|machine\s+learning)|ai[\s\-&]*ml|aiml|artificial\s+intelligence\s+(?:and\s+)?machine\s+learning|cse[\s\-]*csm)\b": "CSE-CSM",
+    r"\b(?:cse[\s\-]*(?:ai|artificial\s+intelligence)[\s\-&]*(?:ds|data\s+science)|ai[\s\-&]*ds|artificial\s+intelligence\s+(?:and\s+)?data\s+science)\b": "AID",
+    r"\baid(?:s)?\b": "AID",  # Standalone AID/AIDS
+    r"\b(?:cse[\s\-]*(?:data\s+science|ds)|csd|cse[\s\-]*csd)\b": "CSE-CSD",
+    r"\bdata\s+science\b": "CSE-CSD",  # Standalone data science (after checking AI+DS combo)
+    r"\b(?:cse[\s\-]*(?:cyber\s+security|cys)|cyber\s+security|cybersecurity|csc|cse[\s\-]*csc)\b": "CSE-CSC",
+    r"\b(?:cse[\s\-]*(?:iot|internet\s+of\s+things)|internet\s+of\s+things|cso|cse[\s\-]*cso)\b": "CSE-CSO",
+    r"\biot\b": "CSE-CSO",  # Standalone IoT
+    r"\b(?:cse[\s\-]*(?:business\s+systems?|bs)|computer\s+science[\s\-&]*business\s+systems?|cs\s+business|csb)\b": "CSB",
+    r"\bcsm\b": "CSE-CSM",  # Standalone CSM
+    
+    # Generic CSE (after checking all specialized variants)
+    r"\b(?:cse|computer\s+science(?:\s+(?:and|&)\s+engineering)?|computer\s+engineering)\b": "CSE",
+    r"\bcs\b": "CSE",  # Standalone CS
+    
+    # EEE/Electrical (check before ECE to handle "electrical and electronics" correctly)
+    r"\b(?:eee|electrical\s+and\s+electronics(?:\s+engineering)?|electrical\s+engineering)\b": "EEE",
+    r"\belectrical\b": "EEE",
+    r"\bee\b": "EEE",
+    
+    # ECE/Electronics
+    r"\b(?:ece|electronics\s+(?:and|&)\s+communication(?:\s+engineering)?|electronics\s+communication)\b": "ECE",
+    r"\belectronics\b": "ECE",
+    r"\bec\b": "ECE",
+    
+    # IT
+    r"\b(?:information\s+technology|it)\b": "IT",
+    
+    # Mechanical
+    r"\b(?:mechanical(?:\s+engineering)?|mech)\b": "ME",
+    r"\bme\b": "ME",
+    
+    # Civil
+    r"\b(?:civil(?:\s+engineering)?|civ)\b": "CIV",
+    r"\bce\b": "CIV",
+    
+    # Other specialized branches
+    r"\b(?:robotics(?:\s+(?:and|&)\s+(?:ai|artificial\s+intelligence))?|rai)\b": "RAI",
     r"\bvlsi\b": "VLSI",
+    r"\b(?:automobile(?:\s+engineering)?|aut)\b": "AUT",
+    r"\b(?:biotechnology|biotech|bio)\b": "BIO",
+    r"\b(?:electronics\s+(?:and|&)\s+instrumentation(?:\s+engineering)?|instrumentation|eie)\b": "EIE",
 }
 
 

@@ -626,7 +626,7 @@ async def chat(req: ChatRequest, request: Request):
                 reply = (
                     "I tried searching our website but encountered an issue. "
                     "Please contact our admissions office directly:\n\n"
-                    "📧 admissions@vnrvjiet.ac.in\n"
+                    "📧 admissionsenquiry@vnrvjiet.in\n"
                     "📞 +91-40-2304 2758/59/60"
                 )
                 _session_history[session_id].append({"role": "user", "content": user_msg})
@@ -639,7 +639,7 @@ async def chat(req: ChatRequest, request: Request):
             reply = (
                 "No problem! If you have any other questions, feel free to ask. "
                 "You can also contact our admissions team directly:\n\n"
-                "📧 admissions@vnrvjiet.ac.in\n"
+                "📧 admissionsenquiry@vnrvjiet.in\n"
                 "📞 +91-40-2304 2758/59/60"
             )
             _session_history[session_id].append({"role": "user", "content": user_msg})
@@ -799,7 +799,7 @@ async def chat(req: ChatRequest, request: Request):
                     reply = (
                         "⚠️ There was an issue submitting your request. "
                         "Please contact our admission team directly:\n\n"
-                        "📧 admissions@vnrvjiet.ac.in\n"
+                        "📧 admissionsenquiry@vnrvjiet.in\n"
                         "📞 +91-40-2304 2758"
                     )
                 
@@ -815,7 +815,7 @@ async def chat(req: ChatRequest, request: Request):
                 reply = (
                     "⚠️ There was an error processing your request. "
                     "Please contact our admission team directly:\n\n"
-                    "📧 admissions@vnrvjiet.ac.in\n"
+                    "📧 admissionsenquiry@vnrvjiet.in\n"
                     "📞 +91-40-2304 2758"
                 )
                 del _session_contact_data[session_id]
@@ -1194,19 +1194,40 @@ async def chat(req: ChatRequest, request: Request):
             logger.error("RAG retrieval failed: %s", e, exc_info=True)
             rag_context = ""
 
-    # ── Web search fallback (if RAG + cutoff both empty) ──────
+    # ── Generate final answer ─────────────────────────────────
+    # Always call LLM first - it has knowledge in system prompt even without RAG context
+    history = _session_history.get(session_id, [])
+    reply = _generate_llm_response(
+        user_msg, 
+        rag_context, 
+        cutoff_info, 
+        history=history,
+        session_id=session_id
+    )
+    
+    # ── Web search fallback (only if LLM explicitly doesn't know) ──
+    # Check if LLM response indicates lack of information
+    lacks_info_phrases = [
+        "don't have that specific information",
+        "don't have that information",
+        "information is unavailable",
+        "I don't have",
+        "not available in my database"
+    ]
+    
     if (
         settings.WEB_SEARCH_ENABLED 
         and intent == IntentType.INFORMATIONAL 
         and not rag_context 
         and not cutoff_info
         and session_id not in _session_pending_websearch
+        and any(phrase.lower() in reply.lower() for phrase in lacks_info_phrases)
     ):
-        # No information available - ask permission to search website
+        # LLM couldn't answer - ask permission to search website
         _session_pending_websearch[session_id] = user_msg
         
         reply = (
-            "I don't have that specific information in my database right now. 🤔\n\n"
+            f"{reply}\n\n"
             "Would you like me to search our official **VNRVJIET website** for this information? "
             "(Reply **yes** or **no**)"
         )
@@ -1219,16 +1240,6 @@ async def chat(req: ChatRequest, request: Request):
             intent="web_search_permission",
             session_id=session_id,
         )
-
-    # ── Generate final answer ─────────────────────────────────
-    history = _session_history.get(session_id, [])
-    reply = _generate_llm_response(
-        user_msg, 
-        rag_context, 
-        cutoff_info, 
-        history=history,
-        session_id=session_id
-    )
 
     # Clear pending intent since we got a full answer
     _session_pending_intent.pop(session_id, None)

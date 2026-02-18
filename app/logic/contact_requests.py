@@ -219,7 +219,7 @@ VNRVJIET Admissions Chatbot
         # Create email
         msg = MIMEMultipart()
         msg['From'] = settings.SMTP_FROM_EMAIL if hasattr(settings, 'SMTP_FROM_EMAIL') else 'chatbot@vnrvjiet.ac.in'
-        msg['To'] = 'admissions@vnrvjiet.ac.in'  # Configure in settings
+        msg['To'] = 'admissionsenquiry@vnrvjiet.in'  # Configure in settings
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         

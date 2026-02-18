@@ -249,7 +249,7 @@ def get_cutoff(
     if db is None:
         logger.warning("Firestore not available. Cannot query cutoff data.")
         return CutoffResult(
-            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissions@vnrvjiet.ac.in for cutoff information.",
+            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for cutoff information.",
             found=False,
         )
 
@@ -412,7 +412,7 @@ def check_eligibility(
     if db is None:
         logger.warning("Firestore not available. Cannot check eligibility.")
         return CutoffResult(
-            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissions@vnrvjiet.ac.in for eligibility information.",
+            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for eligibility information.",
             found=False,
         )
     

@@ -1,0 +1,134 @@
+VNR Vignana Jyothi Institute of Engineering & Technology
+
+Course Intake Distribution
+
+Columns:
+S.No | Course Name | Course Code | Intake | Management | Category-B | NRI
+
+---------------------------------------------------------------------
+
+1. Civil Engineering
+   Code: CIV
+   Intake: 120
+   Management: 36
+   Category-B: 18
+   NRI: 18
+
+2. Electrical & Electronics Engineering
+   Code: EEE
+   Intake: 120
+   Management: 36
+   Category-B: 18
+   NRI: 18
+
+3. Mechanical Engineering
+   Code: MEC
+   Intake: 120
+   Management: 36
+   Category-B: 18
+   NRI: 18
+
+4. Electronics & Communication Engineering
+   Code: ECE
+   Intake: 240
+   Management: 72
+   Category-B: 36
+   NRI: 36
+
+5. Computer Science & Engineering
+   Code: CSE
+   Intake: 240
+   Management: 72
+   Category-B: 36
+   NRI: 36
+
+6. Electronics & Instrumentation Engineering
+   Code: EIE
+   Intake: 120
+   Management: 36
+   Category-B: 18
+   NRI: 18
+
+7. Information Technology
+   Code: INF
+   Intake: 180
+   Management: 54
+   Category-B: 27
+   NRI: 27
+
+8. Automobile Engineering
+   Code: AUT
+   Intake: 60
+   Management: 18
+   Category-B: 9
+   NRI: 9
+
+9. Computer Science and Business Systems
+   Code: CSB
+   Intake: 60
+   Management: 18
+   Category-B: 9
+   NRI: 9
+
+10. CSE - Data Science
+    Code: CSD
+    Intake: 180
+    Management: 54
+    Category-B: 27
+    NRI: 27
+
+11. CSE - Artificial Intelligence & Machine Learning
+    Code: CSM
+    Intake: 180
+    Management: 54
+    Category-B: 27
+    NRI: 27
+
+12. CSE - Cyber Security
+    Code: CSC
+    Intake: 120
+    Management: 36
+    Category-B: 18
+    NRI: 18
+
+13. CSE - Internet of Things
+    Code: CSO
+    Intake: 60
+    Management: 18
+    Category-B: 9
+    NRI: 9
+
+14. Artificial Intelligence & Data Science
+    Code: AID
+    Intake: 60
+    Management: 18
+    Category-B: 9
+    NRI: 9
+
+15. Biotechnology
+    Code: BIO
+    Intake: 60
+    Management: 18
+    Category-B: 9
+    NRI: 9
+
+16. Electronics Engineering (VLSI Design and Technology)
+    Code: EVL
+    Intake: 60
+    Management: 18
+    Category-B: 9
+    NRI: 9
+
+17. Robotics and Artificial Intelligence
+    Code: RAI
+    Intake: 60
+    Management: 18
+    Category-B: 9
+    NRI: 9
+
+---------------------------------------------------------------------
+
+Totals:
+Total Intake: 612
+Total Management Seats: 306
+Total Category-B Seats: 306
