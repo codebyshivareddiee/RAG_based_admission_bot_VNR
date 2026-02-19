@@ -1181,7 +1181,7 @@ async def chat(req: ChatRequest, request: Request):
     # ── RAG path ──────────────────────────────────────────────
     if intent in (IntentType.INFORMATIONAL, IntentType.MIXED):
         try:
-            rag_result = retrieve(user_msg, top_k=5)
+            rag_result = retrieve(user_msg, top_k=8)  # Increased from 5 to 8 for better coverage of mixed queries (B.Tech + M.Tech)
             rag_context = rag_result.context_text
             for chunk in rag_result.chunks:
                 sources.append(f"{chunk.filename} ({chunk.source})")
@@ -1206,13 +1206,26 @@ async def chat(req: ChatRequest, request: Request):
     )
     
     # ── Web search fallback (only if LLM explicitly doesn't know) ──
-    # Check if LLM response indicates lack of information
+    # Check if LLM response indicates lack of information (multilingual support)
     lacks_info_phrases = [
+        # English
         "don't have that specific information",
         "don't have that information",
         "information is unavailable",
         "I don't have",
-        "not available in my database"
+        "not available in my database",
+        # Hindi
+        "मुझे वह विशिष्ट जानकारी नहीं है",
+        "मुझे उस जानकारी नहीं है",
+        "जानकारी उपलब्ध नहीं है",
+        "मेरे पास नहीं है",
+        # Telugu
+        "నాకు ఆ సమాచారం లేదు",
+        "సమాచారం అందుబాటులో లేదు",
+        # Tamil
+        "என்னிடம் தகவல் இல்லை",
+        # Common patterns
+        "नहीं है", "లేదు", "இல்லை",
     ]
     
     if (

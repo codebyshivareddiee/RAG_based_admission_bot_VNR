@@ -362,16 +362,16 @@
     // Mark as shown for this session
     sessionStorage.setItem(POPUP_SHOWN_KEY, "true");
 
-    // Wait 3 seconds after page load
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Wait 5 seconds after page load before showing welcome popup
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Show the popup bubble
     showWelcomePopup();
 
-    // Auto-hide popup after 6 seconds if no interaction
+    // Auto-hide popup after 5 seconds if no interaction
     setTimeout(() => {
       hideWelcomePopup();
-    }, 6000);
+    }, 5000);
   }
 
   /**

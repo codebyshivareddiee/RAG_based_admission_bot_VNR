@@ -30,17 +30,6 @@ Eligibility Criteria
 - Valid TS EAMCET rank or JEE Main score
 - Telangana state domicile required for Convenor Quota
 
-Branches Offered (B.Tech)
---------------------------
-1. Computer Science and Engineering (CSE)
-2. CSE (Artificial Intelligence and Machine Learning)
-3. CSE (Data Science)
-4.CSE(Artificial Intelligence and Data Science)
-4. Electronics and Communication Engineering (ECE)
-5. Electrical and Electronics Engineering (EEE)
-6. Information Technology (IT)
-7. Mechanical Engineering (MECH)
-8. Civil Engineering (CIVIL)
 
 Documents Required for Admission
 ---------------------------------

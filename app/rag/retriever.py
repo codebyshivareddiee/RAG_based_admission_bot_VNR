@@ -2,6 +2,11 @@
 Retriever – queries Pinecone with mandatory college filter.
 
 Every query is filtered to VNRVJIET to guarantee no cross-college leakage.
+
+MULTILINGUAL SUPPORT:
+- Translates non-English queries to English before embedding
+- Ensures effective retrieval from English knowledge base
+- LLM can still respond in the original language
 """
 
 from __future__ import annotations
@@ -36,6 +41,53 @@ def _get_index():
     return _pinecone_index
 
 
+def _is_non_english(text: str) -> bool:
+    """
+    Detect if text contains significant non-ASCII characters (likely non-English).
+    Uses a simple heuristic: if >30% of characters are non-ASCII, it's likely non-English.
+    """
+    if not text:
+        return False
+    non_ascii_count = sum(1 for c in text if ord(c) > 127)
+    total_chars = len(text.replace(" ", ""))  # Exclude spaces
+    if total_chars == 0:
+        return False
+    return (non_ascii_count / total_chars) > 0.3
+
+
+def _translate_to_english(query: str) -> str:
+    """
+    Translate non-English query to English for better retrieval from English knowledge base.
+    Uses GPT-4o-mini for fast, accurate translation.
+    """
+    try:
+        client = _get_openai()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Translate the following query to English. Respond with ONLY the English translation, nothing else."
+                },
+                {
+                    "role": "user",
+                    "content": query
+                }
+            ],
+            temperature=0,
+            max_tokens=100,
+        )
+        
+        translation = response.choices[0].message.content.strip()
+        logger.info(f"Translated '{query[:50]}...' to '{translation}'")
+        return translation
+        
+    except Exception as e:
+        logger.error(f"Translation failed: {e}")
+        # Fallback to original query
+        return query
+
+
 @dataclass
 class RetrievedChunk:
     text: str
@@ -59,10 +111,13 @@ def retrieve(
     """
     Embed the query and search Pinecone with a strict college filter.
     Uses semantic search to find relevant documents across all categories.
+    
+    MULTILINGUAL: Translates non-English queries to English before embedding
+    to improve retrieval accuracy from English knowledge base.
 
     Parameters
     ----------
-    query : str – user's question
+    query : str – user's question (in any language)
     top_k : int – maximum chunks to return (default: 5, can go higher for comprehensive search)
     score_threshold : float – minimum similarity to include (default: 0.25 for inclusive retrieval)
 
@@ -70,10 +125,16 @@ def retrieve(
     -------
     RetrievalResult with ranked chunks and combined context text.
     """
-    # Embed the query
+    # Translate non-English queries to English for better retrieval
+    search_query = query
+    if _is_non_english(query):
+        logger.info(f"Non-English query detected, translating for retrieval: {query[:50]}...")
+        search_query = _translate_to_english(query)
+    
+    # Embed the query (use translated version if non-English)
     client = _get_openai()
     response = client.embeddings.create(
-        input=[query],
+        input=[search_query],
         model=settings.OPENAI_EMBEDDING_MODEL,
     )
     query_embedding = response.data[0].embedding
@@ -90,11 +151,19 @@ def retrieve(
     # Use attribute access (works with Pinecone client v3+/v4+/v5+)
     matches = getattr(results, "matches", None) or []
 
-    logger.info(
-        "Pinecone returned %d matches for query: '%s'",
-        len(matches),
-        query[:80],
-    )
+    if search_query != query:
+        logger.info(
+            "Pinecone returned %d matches for translated query: '%s' (original: '%s')",
+            len(matches),
+            search_query[:80],
+            query[:80],
+        )
+    else:
+        logger.info(
+            "Pinecone returned %d matches for query: '%s'",
+            len(matches),
+            query[:80],
+        )
 
     chunks: list[RetrievedChunk] = []
     for match in matches:
