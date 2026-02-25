@@ -713,6 +713,53 @@ html, body {
   color: #fff;
 }
 
+/* ── Clickable Options (Guided Flows) ───────────────────────── */
+
+.clickable-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.option-button {
+  background: var(--bg-white);
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(26, 35, 126, 0.08);
+}
+
+.option-button:hover {
+  background: var(--primary);
+  color: var(--bg-white);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(26, 35, 126, 0.2);
+  transform: translateY(-1px);
+}
+
+.option-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(26, 35, 126, 0.15);
+}
+
+/* Mobile optimizations for clickable options */
+@media (max-width: 480px) {
+  .option-button {
+    padding: 11px 14px;
+    font-size: 13px;
+  }
+}
+
 /* ── Category Buttons (Welcome Menu) ────────────────────────── */
 
 .category-buttons {
