@@ -119,7 +119,7 @@ _session_active_pipeline: dict[str, str | None] = {}
 _CUTOFF_QUESTIONS = [
     ("branch", "Which **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branches}"),
     ("category", "What is your **category / caste**?\n\n(e.g., OC, BC-A, BC-B, BC-C, BC-D, SC, ST, EWS)"),
-    ("gender", "Are you a **Boy** or a **Girl**?"),
+    ("gender", "Are you looking for **Boys**, **Girls**, or **Both**?"),
     ("year", "Which **year**'s cutoff data would you like?\n\n(e.g., **2022**, **2023**, **2024**) — or reply **latest** for the most recent data."),
 ]
 
@@ -127,7 +127,7 @@ _CUTOFF_QUESTIONS = [
 _ELIGIBILITY_QUESTIONS = [
     ("branch", "Which **branch(es)** are you interested in? You can pick one, multiple (e.g. CSE, ECE, IT), or say **all**.\n\n{branches}"),
     ("category", "What is your **category / caste**?\n\n(e.g., OC, BC-A, BC-B, BC-C, BC-D, SC, ST, EWS)"),
-    ("gender", "Are you a **Boy** or a **Girl**?"),
+    ("gender", "Are you looking for **Boys**, **Girls**, or **Both**?"),
     ("year", "Which **year**'s cutoff data would you like?\n\n(e.g., **2022**, **2023**, **2024**) — or reply **latest** for the most recent data."),
     ("rank", "What is your **EAPCET rank**?"),
 ]
@@ -1273,14 +1273,43 @@ async def chat_stream(req: ChatRequest, request: Request):
                 # Dynamic re-extraction on every reply
                 if "branch" not in collected_s:
                     _sb = extract_branches(user_msg)
-                    if _sb and "ALL" not in _sb:
+                    # When actively waiting for branch, allow ALL and also fall back
+                    # to raw input so short answers like "AID" or "all" are accepted.
+                    if collected_s.get("_waiting_for") == "branch":
+                        if _sb:
+                            collected_s["branch"] = _sb  # includes ["ALL"]
+                        else:
+                            # Check if user said some variant of "all"
+                            _um_b = user_msg.strip().lower()
+                            if re.search(r"\b(all|every|each|any)\b", _um_b):
+                                collected_s["branch"] = ["ALL"]
+                            elif _um_b:  # treat raw input as a branch code
+                                collected_s["branch"] = [user_msg.strip().upper()]
+                    elif _sb and "ALL" not in _sb:
                         collected_s["branch"] = _sb
                 if "category" not in collected_s:
                     _sc = extract_category(user_msg)
+                    if not _sc and collected_s.get("_waiting_for") == "category":
+                        _um_c = user_msg.strip().lower()
+                        if re.search(r"\b(all|every|each|any)\b", _um_c):
+                            _sc = "ALL"
+                        elif user_msg.strip():
+                            _sc = user_msg.strip().upper()  # treat as raw category
                     if _sc:
                         collected_s["category"] = _sc
                 if "gender" not in collected_s:
                     _sg = extract_gender(user_msg)
+                    # When the pipeline is actively waiting for gender, apply an
+                    # extended check: a short standalone reply like "1", "b", "g",
+                    # "m", "f" or number-style answers should also be resolved here.
+                    if not _sg and collected_s.get("_waiting_for") == "gender":
+                        _um = user_msg.lower().strip()
+                        if _um in ("1", "m", "b", "male", "boy"):
+                            _sg = "Boys"
+                        elif _um in ("2", "f", "g", "female", "girl"):
+                            _sg = "Girls"
+                        elif _um in ("3", "0", "a", "all", "both", "either", "any"):
+                            _sg = "ALL"
                     if _sg:
                         collected_s["gender"] = _sg
                 if "year" not in collected_s:
@@ -1344,6 +1373,46 @@ async def chat_stream(req: ChatRequest, request: Request):
                             _session_history[session_id].append({"role": "assistant", "content": _ask_s})
                             return
 
+            # ── Branch-change follow-up (stream): inherit previous cutoff context ────
+            # Catches queries like "what about CSM and CSO?" sent after a prior cutoff
+            # answer.  These messages carry branch codes but no category / year keywords,
+            # so the classifier often returns INFORMATIONAL.  We intercept here and serve
+            # Firestore data directly — the LLM is never involved.
+            elif (
+                extract_branches(user_msg)
+                and session_id in _session_last_cutoff
+                and not extract_category(user_msg)
+            ):
+                _last_s = _session_last_cutoff[session_id]
+                _follow_branches = extract_branches(user_msg)
+                _follow_category = _last_s.get("category")
+                _follow_gender = extract_gender(user_msg) or _last_s.get("gender")
+                _follow_year = extract_year(user_msg)
+                if _follow_year is None and _last_s.get("year") is not None:
+                    _follow_year = _last_s["year"]
+                elif re.search(r"\b(latest|recent|current|now|last)\b", user_msg, re.I):
+                    _follow_year = None
+                if _follow_category and _follow_branches:
+                    _follow_reply = _build_multi_branch_reply(
+                        _follow_branches, _follow_category, _follow_gender,
+                        rank=None, show_trend=_detect_trend_request(user_msg),
+                        year=_follow_year,
+                    )
+                    _session_last_cutoff[session_id] = {
+                        "branch": _follow_branches,
+                        "category": _follow_category,
+                        "gender": _follow_gender,
+                        "year": _follow_year,
+                    }
+                    words = _follow_reply.split()
+                    for word in words:
+                        yield f"data: {json.dumps({'token': word + ' ', 'done': False})}\n\n"
+                        await asyncio.sleep(0.015)
+                    yield f"data: {json.dumps({'token': '', 'done': True, 'intent': 'cutoff', 'sources': ['VNRVJIET Cutoff Database'], 'session_id': session_id})}\n\n"
+                    _session_history[session_id].append({"role": "user", "content": user_msg})
+                    _session_history[session_id].append({"role": "assistant", "content": _follow_reply})
+                    return
+
             # ── New cutoff / eligibility query (no active session) ───────────
             # Only start a fresh collection pipeline when the intent is cutoff/eligibility.
             elif intent in (IntentType.CUTOFF, IntentType.ELIGIBILITY):
@@ -1354,8 +1423,16 @@ async def chat_stream(req: ChatRequest, request: Request):
                 if _detect_trend_request(user_msg):
                     _coll_n["_show_trend"] = True
                 _bn = extract_branches(user_msg)
-                if _bn and "ALL" not in _bn:
-                    _coll_n["branch"] = _bn
+                # Allow ALL on first message only when user explicitly says "all branches"
+                # (not a bare "all" which is ambiguous in context of the first query).
+                _all_explicit = bool(re.search(
+                    r"\ball\s*(?:branch|dept|depart|stream|course|program)|"
+                    r"(?:branch|dept|depart|stream|course|program)\s*all",
+                    user_msg, re.I
+                ))
+                if _bn:
+                    if "ALL" not in _bn or _all_explicit:
+                        _coll_n["branch"] = _bn
                 _cn = extract_category(user_msg)
                 if _cn:
                     _coll_n["category"] = _cn
@@ -1370,6 +1447,22 @@ async def chat_stream(req: ChatRequest, request: Request):
                 _rn = extract_rank(user_msg)
                 if _rn and is_elig_n:
                     _coll_n["rank"] = _rn
+
+                # ── Context inheritance for branch-change follow-ups (stream) ──────
+                # If user provides branches but omits category/gender/year, inherit
+                # those filters from the previous cutoff query in this session.
+                if (
+                    "branch" in _coll_n
+                    and session_id in _session_last_cutoff
+                    and "category" not in _coll_n
+                ):
+                    _prev_s = _session_last_cutoff[session_id]
+                    if _prev_s.get("category"):
+                        _coll_n["category"] = _prev_s["category"]
+                    if "gender" not in _coll_n and _prev_s.get("gender"):
+                        _coll_n["gender"] = _prev_s["gender"]
+                    if "year" not in _coll_n and _prev_s.get("year") is not None:
+                        _coll_n["year"] = _prev_s["year"]
 
                 _req_n = [f for f, _ in _qs_n]
                 _done_n = all(f in _coll_n for f in _req_n)
@@ -2404,6 +2497,27 @@ async def chat(req: ChatRequest, request: Request):
             collected["year"] = None  # use latest available
         if rank and is_eligibility:
             collected["rank"] = rank
+
+        # ── Context inheritance for branch-change follow-ups ─────────────────
+        # When user provides only new branches (e.g. "what about csm and cso")
+        # but omits category/gender/year, inherit those from the previous cutoff
+        # query stored in _session_last_cutoff.  This prevents the bot from
+        # asking all questions again when the user is simply switching branches.
+        if (
+            "branch" in collected
+            and session_id in _session_last_cutoff
+            and "category" not in collected
+        ):
+            _last = _session_last_cutoff[session_id]
+            if _last.get("category"):
+                collected["category"] = _last["category"]
+                category = _last["category"]
+            if "gender" not in collected and _last.get("gender"):
+                collected["gender"] = _last["gender"]
+                gender = _last["gender"]
+            if "year" not in collected and _last.get("year") is not None:
+                collected["year"] = _last["year"]
+                year = _last["year"]
 
         # Check if all required fields are already provided
         required = [f for f, _ in questions]

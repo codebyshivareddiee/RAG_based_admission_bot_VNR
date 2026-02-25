@@ -165,16 +165,37 @@ def extract_category(text: str) -> str | None:
 
 def extract_gender(text: str) -> str | None:
     """Extract gender from user text. Returns 'Boys', 'Girls', 'ALL' (for both), or None."""
-    t = text.lower()
-    
-    # Check for "both", "all genders", "boys and girls", "coed"
-    if re.search(r"\b(?:both|all)\s*(?:gender|sex|boy.*girl|girl.*boy)?", t):
+    t = text.lower().strip()
+
+    # ── "Both" / "ALL" detection ──────────────────────────────────────────
+    # Exact keywords
+    if re.search(r"\b(?:both|all)\b", t):
         return "ALL"
-    if re.search(r"\bboy.*and.*girl|girl.*and.*boy", t):
+    # Common typos for "both": boith, boyth, boht, botth, bth, bot, etc.
+    if re.search(r"\bbo[iy]?[aeiou]?th?[hs]?\b", t):
         return "ALL"
+    # Boys and girls together
+    if re.search(r"boy.*and.*girl|girl.*and.*boy|boys.*girls|girls.*boys", t):
+        return "ALL"
+    # Co-ed
     if re.search(r"\bcoed\b", t):
         return "ALL"
-    
+    # Intent phrases: "need for both", "want both", "for all", "either", etc.
+    _both_intents = [
+        r"\bfor\s+(?:all|both)\b",
+        r"\b(?:want|need|show|give|get)\s+(?:for\s+)?(?:both|all)\b",
+        r"\beither\b",
+        r"\bany\s*(?:gender|one|of\s+them|type)?\b",
+        r"\bno\s*prefer(?:ence)?\b",
+        r"\bdon'?t\s+(?:care|mind)\b",
+        r"\bdoes?n'?t\s+matter\b",
+        r"\ball\s+(?:gender|type|of\s+(?:them|it))\b",
+    ]
+    for _p in _both_intents:
+        if re.search(_p, t):
+            return "ALL"
+
+    # ── Single gender detection ───────────────────────────────────────────
     if re.search(r"\b(girl|girls|female|women|woman|daughter)\b", t):
         return "Girls"
     if re.search(r"\b(boy|boys|male|men|man|son)\b", t):
