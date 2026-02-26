@@ -2184,6 +2184,14 @@ async def chat_stream(req: ChatRequest, request: Request):
                     return
             
             # ═══════════════════════════════════════════════════════════
+            # Classify intent early so it is available throughout the
+            # Priority 4/5 if-elif chain (must not be an unbound local).
+            # ═══════════════════════════════════════════════════════════
+            query_for_processing = user_msg
+            classification = classify(query_for_processing)
+            intent = classification.intent
+
+            # ═══════════════════════════════════════════════════════════
             # PRIORITY 4: Check if session is in cutoff flow (EXISTING SESSION HANDLER)
             # This must execute BEFORE new cutoff detection and intent classification
             # ═══════════════════════════════════════════════════════════
@@ -2450,11 +2458,12 @@ async def chat_stream(req: ChatRequest, request: Request):
             year = extract_year(user_msg)
             
             # Use overridden query if set (for document queries with both course and category)
-            query_for_processing = locals().get('user_msg_override', user_msg)
-            
-            # Classify intent
-            classification = classify(query_for_processing)
-            intent = classification.intent
+            # Re-classify with the refined query if user_msg_override was set upstream.
+            _override = locals().get('user_msg_override')
+            if _override and _override != query_for_processing:
+                query_for_processing = _override
+                classification = classify(query_for_processing)
+                intent = classification.intent
             
             # Check cache first for informational queries
             if intent == IntentType.INFORMATIONAL:
