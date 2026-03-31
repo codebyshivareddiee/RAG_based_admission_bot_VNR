@@ -294,7 +294,7 @@ def get_cutoff(
     if db is None:
         logger.warning("Firestore not available. Cannot query cutoff data.")
         return CutoffResult(
-            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for cutoff information.",
+            message="WARNING: Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for cutoff information.",
             found=False,
         )
 
@@ -325,6 +325,27 @@ def get_cutoff(
     logger.info(f"Firestore query returned {len(rows)} rows for branch={branch}, category={category}, gender={gender}, year={year}")
     if rows:
         logger.info(f"Sample row: {rows[0]}")
+
+    # If no results found for specific gender, try fallback to "Any" gender
+    if not rows and _gender_specific and gender in ("Boys", "Girls"):
+        logger.info(f"No results for {gender}, trying fallback to 'Any' gender")
+        fallback_query = db.collection(COLLECTION)
+        fallback_query = fallback_query.where(filter=FieldFilter("branch", "==", branch))
+        fallback_query = fallback_query.where(filter=FieldFilter("category", "==", category))
+        fallback_query = fallback_query.where(filter=FieldFilter("gender", "==", "Any"))
+        fallback_query = fallback_query.where(filter=FieldFilter("quota", "==", quota))
+        if ph_type:
+            fallback_query = fallback_query.where(filter=FieldFilter("ph_type", "==", ph_type))
+        if year:
+            fallback_query = fallback_query.where(filter=FieldFilter("year", "==", year))
+        if round_num:
+            fallback_query = fallback_query.where(filter=FieldFilter("round", "==", round_num))
+        
+        fallback_docs = fallback_query.stream()
+        fallback_rows = [doc.to_dict() for doc in fallback_docs]
+        if fallback_rows:
+            rows.extend(fallback_rows)
+            logger.info(f"Fallback query found {len(fallback_rows)} rows with 'Any' gender")
 
     # Also check with 'caste' field for older EWS records that use that name
     if not rows or category == "EWS":
@@ -376,6 +397,7 @@ def get_cutoff(
 
     if not rows:
         return CutoffResult(
+            found=False,
             branch=branch,
             category=category,
             year=year,
@@ -391,7 +413,7 @@ def get_cutoff(
         )
 
     dept_url = _get_department_url(branch)
-    dept_link = f"\n\n🔗 **Explore {branch} Department:** {dept_url}" if dept_url else ""
+    dept_link = f"\n\nExplore {branch} Department: {dept_url}" if dept_url else ""
 
     # ── Trend mode: show ALL available years with trend analysis ──
     if not year and show_trend and len(set(r.get("year") for r in rows)) > 1:
@@ -446,11 +468,12 @@ def get_cutoff(
             + "\n".join(year_lines)
             + trend_analysis
             + dept_link
-            + "\n\n⚠️ _Based on previous year data. Cutoffs may vary._"
+            + "\n\nWARNING: Based on previous year data. Cutoffs may vary."
         )
 
         best = rows[0]
         return CutoffResult(
+            found=True,
             cutoff_rank=best.get("cutoff_rank"),
             first_rank=best.get("first_rank"),
             last_rank=best.get("last_rank", best.get("cutoff_rank")),
@@ -510,10 +533,11 @@ def get_cutoff(
 
     separator = "\n\n" + "─" * 36 + "\n\n"
     header = f"**EAPCET Cutoff Ranks — {target_year}**\n\n"
-    message = header + separator.join(blocks) + dept_link + "\n\n⚠️ _Based on previous year data. Cutoffs may vary._"
+    message = header + separator.join(blocks) + dept_link + "\n\nWARNING: Based on previous year data. Cutoffs may vary."
 
     best = display_rows[0]
     return CutoffResult(
+        found=True,
         cutoff_rank=best.get("cutoff_rank"),
         first_rank=best.get("first_rank"),
         last_rank=best.get("last_rank") if best.get("last_rank") is not None else best.get("cutoff_rank"),
@@ -544,7 +568,7 @@ def check_eligibility(
     if db is None:
         logger.warning("Firestore not available. Cannot check eligibility.")
         return CutoffResult(
-            message="⚠️ Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for eligibility information.",
+            message="WARNING: Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for eligibility information.",
             found=False,
         )
     
@@ -558,7 +582,7 @@ def check_eligibility(
 
     # Add department URL suggestion
     dept_url = _get_department_url(result.branch)
-    dept_link = f"\n\n🔗 **Explore {result.branch} Department:** {dept_url}" if dept_url else ""
+    dept_link = f"\n\nExplore {result.branch} Department: {dept_url}" if dept_url else ""
 
     closing = result.cutoff_rank
     opening = result.first_rank
@@ -583,7 +607,7 @@ def check_eligibility(
             f"**{result.branch}** under **{result.category}** ({result.gender}) "
             f"— Year {result.year}, Round {result.round}, {result.quota} quota.\n\n"
             f"{rank_range}\n"
-            f"Your rank must be ≤ {closing:,} to qualify."
+            f"Your rank must be <= {closing:,} to qualify."
             + dept_link
             + "\n\n⚠️ _Based on previous year data. Actual cutoffs may vary._"
         )
@@ -850,5 +874,5 @@ def format_cutoffs_table(
     if len(cutoffs) > max_rows:
         output += f"\n\n_Showing first {max_rows} of {len(cutoffs)} results._"
 
-    output += "\n\n⚠️ _Based on previous year data. Cutoffs may vary._"
+    output += "\n\nWARNING: Based on previous year data. Cutoffs may vary."
     return output

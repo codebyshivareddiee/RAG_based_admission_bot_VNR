@@ -2,6 +2,32 @@ VNR VIGNANA JYOTHI INSTITUTE OF ENGINEERING AND TECHNOLOGY
 B.Tech Programmes and Intake Capacity
 Source: https://vnrvjiet.ac.in/admission/
 
+Admission Key Information
+--------------------------
+B.Tech Application Fee : ₹2,000 (non-refundable)
+M.Tech Application Fee : ₹1,000 (non-refundable)
+⚠️ Any fee paid is non-refundable.
+
+Branch Codes:
+  B.Tech Branch Code (EAPCET) : VJEC
+  M.Tech / MCA Branch Code    : VJEC1
+
+Admission Quotas (B.Tech):
+  1. Convenor / Category-A
+  2. Management – Category-B / NRI / NRI Sponsored
+  3. Supernumerary (FN / OCI / CIWG) – Additional seats over sanctioned intake
+
+Admission Quotas (M.Tech / MCA):
+  1. Convenor / Category-A
+  2. Management – Category-B / NRI / NRI Sponsored
+  (Supernumerary quota NOT applicable for M.Tech / MCA)
+
+Fee Structure (2025):
+  M.Tech Fee : ₹1,30,000 per annum
+  MCA Fee    : ₹27,000 per annum
+
+Entrance Examination: TS EAPCET (formerly known as TS EAMCET)
+
 VNRVJIET offers 17 B.Tech programmes across various engineering disciplines:
 
 1. ARTIFICIAL INTELLIGENCE AND DATA SCIENCE (AID)

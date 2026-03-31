@@ -1,9 +1,33 @@
 NRI / FN / OCI / CIWG Quota Admissions – VNRVJIET
 ==================================================
 
+Application Fee
+---------------
+B.Tech Application Fee : ₹2,000 (non-refundable)
+M.Tech Application Fee : ₹1,000 (non-refundable)
+
+⚠️ Any fee paid is non-refundable.
+
+Branch Codes
+------------
+- B.Tech Branch Code (EAPCET)  : VJEC
+- M.Tech / MCA Branch Code     : VJEC1
+
 Seat Category
 -------------
-NRI (Non-Resident Indian), FN (Foreign National), OCI (Overseas Citizens of India), and CIWG (Children of Indian Workers in Gulf) seats are offered at VNRVJIET under the NRI/Foreign category quota.
+Under B.Tech admissions, the following quota applies:
+
+- **Management – Category-B / NRI / NRI Sponsored** (30% of sanctioned intake):
+  Includes NRI and NRI Sponsored candidates within Category-B seats.
+
+- **Supernumerary Seats** (additional seats, over and above sanctioned intake):
+  Available for Foreign Nationals (FN), Overseas Citizens of India (OCI), and
+  Children of Indian Workers in Gulf Countries (CIWG).
+
+⚠️ Supernumerary quota applies to B.Tech ONLY. It is NOT available for M.Tech / MCA.
+
+For M.Tech / MCA:
+- Category-B (30%) includes Management / NRI / NRI Sponsored seats only.
 
 Fee Structure (2025-26) – NRI / FN / OCI / CIWG Quota
 ------------------------------------------------------
@@ -98,6 +122,7 @@ Important Notice (Anti-Fraud)
 ------------------------------
 ⚠️ VNRVJIET does NOT engage any Agents or Consultants for admissions to NRI / Category B seats.
 - Do not pay any money to agents claiming to guarantee NRI/Category B seats.
+- Any fee paid to the institution is non-refundable.
 - Beware of fraudulent agents misrepresenting VNRVJIET admissions.
 - To report fraud, contact the Admission Section directly: +91 9391982884
 - Legal action will be taken against those involved in fraudulent admission activities.

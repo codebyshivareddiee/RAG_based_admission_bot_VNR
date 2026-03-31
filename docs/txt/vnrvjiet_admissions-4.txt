@@ -5,39 +5,59 @@ About VNRVJIET
 --------------
 VNR Vignana Jyothi Institute of Engineering and Technology (VNRVJIET) is a premier autonomous engineering college located in Bachupally, Hyderabad, Telangana, India. Established in 1995, the college is affiliated to Jawaharlal Nehru Technological University, Hyderabad (JNTUH) and approved by AICTE, New Delhi. The institute was granted autonomous status by UGC in 2009. VNRVJIET is accredited by NAAC with an 'A++' grade and multiple programs are accredited by NBA.
 
-Admission Process-BTECH
------------------
+Application Fee
+---------------
+- B.Tech Application Fee : ₹2,000
+- M.Tech Application Fee : ₹1,000
+
+⚠️ IMPORTANT: Any fee paid is non-refundable.
+
+Admission Process – B.Tech
+--------------------------
 Admissions to VNRVJIET are conducted through the following modes:
 
-1. **Convenor Quota (Category A)** – 70% of seats
-   - Through Telangana State Engineering, Agriculture and Medical Common Entrance Test (TS EAMCET)
-   - Admissions handled by Telangana State Council of Higher Education (TSCHE)
-   - Candidates must register on the TS EAMCET counselling portal and select VNRVJIET during web counselling
+B.Tech Branch Code (EAPCET): **VJEC**
 
-2. **Management Quota (Category B)** – 30% of seats
+1. **Convenor / Category-A** – 70% of seats
+   - Through Telangana State Engineering, Agriculture, Pharmacy and Common Entrance Test (TS EAPCET)
+   - Admissions handled by Telangana State Council of Higher Education (TSCHE)
+   - Candidates must register on the TS EAPCET counselling portal and select VNRVJIET during web counselling
+
+2. **Management – Category-B / NRI / NRI Sponsored** – 30% of seats
    - Through college-level counselling
-   - Based on TS EAMCET / JEE Main rank
+   - Based on TS EAPCET / JEE Main rank
+   - Includes NRI and NRI Sponsored candidates
    - Apply directly at the VNRVJIET admissions office or website
 
-3. **NRI / FN / OCI / CIWG Quota**
-   - Limited seats available per branch
+3. **Supernumerary** (FN / OCI / CIWG) – Additional Seats (over and above sanctioned intake)
+   - For Foreign Nationals (FN), Overseas Citizens of India (OCI), and Children of Indian Workers in Gulf Countries (CIWG)
    - Eligibility: OCI cardholders, OR children of parents working in GCC countries (Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, UAE) with a valid Visa/Work Permit, OR Foreign Nationals
    - Fee (2025-26): $5000/yr (CSE/ECE/IT/AI branches), $3500/yr (Civil/EEE/ME), $3000/yr (Auto/EIE)
-   -overall NRI qouta fee strucvture is $3000-$5000 may vary according to the branches
+   - Overall NRI/FN/OCI quota fee structure is $3,000–$5,000, may vary according to branch
    - Contact admissions office for step-by-step process: admissionsenquiry@vnrvjiet.in | +91-40-2304 2758
    - ⚠️ VNRVJIET does NOT use agents/consultants for NRI/Category-B admissions
+
+Admission Process – M.Tech / MCA
+---------------------------------
+M.Tech / MCA Branch Code (TGPGECET/TGICET): **VJEC1**
+
+Admission Quotas (M.Tech / MCA):
+1. **Convenor / Category-A** – 70% of seats (TGPGECET / GATE for M.Tech; TGICET for MCA)
+2. **Management – Category-B / NRI / NRI Sponsored** – 30% of seats
+
+(Note: Supernumerary quota is NOT applicable for M.Tech / MCA admissions.)
 
 Eligibility Criteria
 --------------------
 - Must have passed Intermediate (10+2) or equivalent with Mathematics, Physics, and Chemistry (MPC)
 - Minimum 45% aggregate in Intermediate (40% for reserved categories)
-- Valid TS EAMCET rank or JEE Main score
+- Valid TS EAPCET rank or JEE Main score
 - Telangana state domicile required for Convenor Quota
 
 
 Documents Required for Admission
 ---------------------------------
-- TS EAMCET / JEE Main rank card
+- TS EAPCET / JEE Main rank card
 - Intermediate marks memo (original + 2 copies)
 - SSC marks memo (original + 2 copies)
 - Transfer Certificate (TC)
@@ -51,10 +71,15 @@ Documents Required for Admission
 
 Fee Structure (Approximate for 2025-26)
 ---------------------------------------
-- Convenor Quota: ₹1,35,000 per annum (tuition fee as per Telangana government norms)->For BTech, ₹1,30,000 per year for M.Tech. programmes.
-- Management Quota: ₹2,00,000 to ₹3,50,000 per annum (varies by branch)
+- B.Tech Application Fee: ₹2,000 (non-refundable)
+- M.Tech Application Fee: ₹1,000 (non-refundable)
+- Convenor Quota (B.Tech): ₹1,35,000 per annum (tuition fee as per Telangana government norms)
+- M.Tech Fee: ₹1,30,000 per annum (applicable for academic year 2025)
+- MCA Fee: ₹27,000 per annum (applicable for academic year 2025)
+- Management Quota (B.Tech): ₹2,00,000 to ₹3,50,000 per annum (varies by branch)
 - Hostel Fee: ₹1,35,000 per annum (including mess and laundry)
 - Note: Fee reimbursement available for eligible students under Telangana government schemes
+- ⚠️ Any fee paid is non-refundable.
 
 Scholarships
 ------------
@@ -144,8 +169,8 @@ Frequently Asked Questions
 Q: Is VNRVJIET a good college?
 A: VNRVJIET is one of the top private engineering colleges in Telangana, accredited with NAAC A++ grade and NBA accreditation for multiple programs.
 
-Q: What is the TS EAMCET code for VNRVJIET?
-A: The college code for VNRVJIET is VNRV.
+Q: What is the TS EAPCET code for VNRVJIET?
+A: The B.Tech Branch Code for VNRVJIET in EAPCET counselling is **VJEC**. The M.Tech / MCA Branch Code is **VJEC1**.
 
 Q: Is hostel mandatory?
 A: No, hostel is optional. Outstation students are encouraged to opt for hostel.

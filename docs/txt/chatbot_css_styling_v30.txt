@@ -1,0 +1,191 @@
+# VNRVJIET Chatbot CSS Styles and Design (v30)
+
+## Enhanced Chatbot Styling (app/frontend/widget.css)
+
+This CSS file provides comprehensive styling for the VNRVJIET Admissions Chatbot widget with modern design principles and enhanced user experience features.
+
+## Key Style Features:
+
+### 1. Design System
+- CSS Custom Properties (Variables) for consistency
+- Modern color palette with VNRVJIET branding
+- Responsive design for all screen sizes
+- Smooth animations and transitions
+- Professional gradient backgrounds
+
+### 2. Speech-to-Text Visual Feedback (v30)
+- Animated glow border around input during listening
+- Pulsing red border on input field
+- Floating status text with arrow pointer
+- Smooth fade-in animations for status elements
+- Hardware-accelerated animations for performance
+
+### 3. Text-to-Speech Button Styling (v26-v29)
+- Enhanced button states and transitions
+- Visual feedback for playing/stopped states
+- Hover effects and micro-interactions
+- Consistent sizing and spacing
+- Accessibility-compliant contrast ratios
+
+### 4. Hyperlink Styling (v27)
+- Blue (#0066cc) clickable links
+- Underlined text decoration
+- Hover state color changes (#0052a3)
+- Proper contrast for accessibility
+- Support for both bot and user message links
+
+### 5. Cutoff Field Formatting (v28)
+- Block display for each cutoff field
+- Proper spacing between fields (4px margins)
+- Enhanced label styling with primary color
+- Minimum width for label alignment (140px)
+- Clear visual hierarchy
+
+### 6. Responsive Layout
+- Mobile-first approach
+- Flexible grid system for category buttons
+- Scalable typography
+- Touch-friendly button sizes (44px minimum)
+- Optimized for various screen sizes
+
+### 7. Animation System
+- Smooth micro-interactions
+- Loading and typing indicators
+- Fade-in effects for messages
+- Pulsing animations for active states
+- Hardware-accelerated transforms
+
+## Technical Specifications:
+
+### CSS Variables (Custom Properties):
+```css
+--primary: #1a237e (VNRVJIET Blue)
+--primary-light: #3949ab (Lighter Blue)
+--primary-dark: #0d1642 (Darker Blue)
+--accent: #ff6f00 (Orange Accent)
+--bg-light: #f5f7fb (Light Background)
+--bg-white: #ffffff (White Background)
+--text-primary: #1a1a2e (Dark Text)
+--text-secondary: #555770 (Medium Text)
+--text-muted: #8e8ea0 (Light Text)
+--border: #e3e5ed (Border Color)
+--shadow: 0 8px 32px rgba(0, 0, 0, 0.12) (Box Shadow)
+--radius: 16px (Border Radius)
+--transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1) (Smooth Transitions)
+```
+
+### Key Animations:
+
+#### Listening Glow Animation:
+```css
+@keyframes listeningGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+```
+- Creates colorful flowing glow around input area during speech recognition
+- Uses linear gradient with multiple colors
+- 2-second duration with smooth easing
+
+#### Input Pulse Animation:
+```css
+@keyframes inputPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(244, 67, 54, 0.4); }
+}
+```
+- Pulsing red border effect during listening
+- Subtle shadow expansion and contraction
+- Synchronized with listening state
+
+#### Status Fade-In:
+```css
+@keyframes statusFadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+```
+- Smooth appearance of status text
+- Upward slide motion with opacity change
+- 0.3-second duration for snappy feedback
+
+### Component Styling:
+
+#### Chat Container:
+- Fixed positioning for overlay behavior
+- Z-index management for proper layering
+- Smooth slide-in/slide-out animations
+- Box shadow for depth perception
+- Backdrop blur effects
+
+#### Message Bubbles:
+- Rounded corners with custom radius
+- Proper padding and margins for readability
+- Different styles for user vs bot messages
+- Support for rich content (links, formatting)
+- Overflow handling for long messages
+
+#### Input Area:
+- Flexible layout with proper spacing
+- Enhanced focus states
+- Integration with microphone button
+- Support for listening state animations
+- Proper label associations for accessibility
+
+#### Microphone Button:
+- Circular design with hover effects
+- Simple emoji-based icon (🎤)
+- Consistent size and positioning
+- Smooth transitions for all states
+- Touch-friendly sizing for mobile
+
+#### Quick Reply Buttons:
+- Pill-shaped design with subtle shadows
+- Hover and active state animations
+- Proper spacing and alignment
+- Category-based color coding
+- Responsive grid layout
+
+### Accessibility Features:
+- High contrast ratios for text readability
+- Focus indicators for keyboard navigation
+- Screen reader compatible markup
+- Proper color contrast for all interactive elements
+- Scalable design for zoom compatibility
+
+### Performance Optimizations:
+- Hardware-accelerated CSS animations
+- Efficient selector usage
+- Minimal repaints and reflows
+- Optimized gradient and shadow rendering
+- GPU-accelerated transforms
+
+### Browser Compatibility:
+- Modern CSS features with fallbacks
+- Vendor prefix handling where needed
+- Graceful degradation for older browsers
+- Consistent rendering across platforms
+- Mobile browser optimizations
+
+### Responsive Breakpoints:
+- Mobile: 320px - 768px
+- Tablet: 768px - 1024px
+- Desktop: 1024px+
+- Large screens: 1440px+
+
+The CSS architecture follows modern best practices with component-based organization, consistent naming conventions, and maintainable code structure. All styles are designed to work seamlessly with the JavaScript functionality while providing an excellent user experience across all devices and browsers.
+
+## Color Accessibility:
+- All color combinations meet WCAG 2.1 AA standards
+- Sufficient contrast ratios for text readability
+- Color-blind friendly palette choices
+- Alternative indicators beyond color coding
+
+## Future Enhancements:
+- Dark mode support with CSS custom properties
+- Additional animation options
+- Enhanced mobile gestures
+- Improved loading states
+- Advanced theming capabilities
+
+This comprehensive CSS system ensures the chatbot widget maintains a professional, accessible, and visually appealing interface while supporting all advanced features like voice input/output, dynamic content, and real-time interactions.

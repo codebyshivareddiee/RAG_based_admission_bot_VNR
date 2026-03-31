@@ -342,6 +342,21 @@ html, body {
   text-align: center;
   border-bottom: 1px solid #ffe082;
   flex-shrink: 0;
+  line-height: 1.5;
+}
+
+.video-guide-link {
+  color: #0066cc;
+  text-decoration: underline;
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 4px;
+  transition: color 0.2s;
+}
+
+.video-guide-link:hover {
+  color: #0052a3;
+  text-decoration: underline;
 }
 
 /* ── Messages Area ──────────────────────────────────────────── */
@@ -397,9 +412,75 @@ html, body {
   position: relative;
 }
 
+/* Styling for all links inside message bubbles */
+.message .bubble a {
+  color: #0066cc;
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.message .bubble a:hover {
+  color: #0052a3;
+  opacity: 0.85;
+}
+
+.message .bubble a:active {
+  color: #003d7a;
+}
+
+/* Ensure links are visible in user bubbles (white text on blue bg) */
+.message.user .bubble a {
+  color: #ffffff;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.message.user .bubble a:hover {
+  opacity: 0.9;
+  text-decoration: underline;
+}
+
 /* Ensure block divs inside bot bubbles always display as block */
 .message.bot .bubble div[style] {
   display: block !important;
+}
+
+/* Enhanced formatting for cutoff data fields */
+.message.bot .bubble div[style*="display:block"] {
+  display: block !important;
+  margin: 3px 0 !important;
+  clear: both;
+  width: 100%;
+}
+
+/* Specific styling for cutoff fields */
+.message.bot .bubble .cutoff-field {
+  display: block !important;
+  margin: 4px 0 !important;
+  padding: 2px 0;
+  clear: both;
+  width: 100%;
+  line-height: 1.4;
+}
+
+/* Ensure cutoff field labels are properly formatted */
+.message.bot .bubble div[style*="display:block"] strong,
+.message.bot .bubble .cutoff-field strong {
+  display: inline-block;
+  min-width: 140px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+/* Force line breaks after cutoff field containers */
+.message.bot .bubble div[style*="display:block"]:after,
+.message.bot .bubble .cutoff-field:after {
+  content: "";
+  display: block;
+  clear: both;
 }
 
 .message.bot .bubble {
@@ -588,6 +669,118 @@ html, body {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.chat-input-area .mic-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-light);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  font-size: 18px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.chat-input-area .mic-btn:hover:not(:disabled) {
+  background: var(--primary-light);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.chat-input-area .mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Listening state styles for input area */
+.chat-input-area.listening {
+  position: relative;
+}
+
+.chat-input-area.listening::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 26px;
+  background: linear-gradient(45deg, #f44336, #ff9800, #4caf50, #2196f3);
+  background-size: 400% 400%;
+  animation: listeningGlow 2s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* Listening state for input field */
+.chat-input-area input.listening {
+  border-color: #f44336;
+  box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2);
+  animation: inputPulse 2s ease-in-out infinite;
+}
+
+/* Listening status text */
+.listening-status {
+  position: absolute;
+  top: -25px;
+  left: 50px;
+  background: #f44336;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: none;
+  z-index: 10;
+  animation: statusFadeIn 0.3s ease-out;
+}
+
+.listening-status::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 15px;
+  border: 4px solid transparent;
+  border-top-color: #f44336;
+}
+
+/* Animations */
+@keyframes listeningGlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes inputPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(244, 67, 54, 0.4);
+  }
+}
+
+@keyframes statusFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chat-input-area input {
@@ -936,5 +1129,59 @@ html, body {
   to {
     opacity: 1;
   }
+}
+
+/* ── Text-to-Speech (TTS) Button ────────────────────────────── */
+
+.tts-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 35, 126, 0.08);
+  border: none;
+  color: var(--primary);
+  padding: 6px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 4px;
+  margin-top: 8px;
+  margin-left: 2px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+.tts-button:hover {
+  background: rgba(26, 35, 126, 0.15);
+  transform: scale(1.05);
+}
+
+.tts-button:active {
+  transform: scale(0.95);
+}
+
+.tts-button.playing {
+  background: var(--primary);
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.tts-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tts-icon {
+  font-size: 14px;
 }
 

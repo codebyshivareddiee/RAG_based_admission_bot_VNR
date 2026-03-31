@@ -1,0 +1,148 @@
+# VNRVJIET Chatbot Widget JavaScript Implementation (v30)
+
+## Core Chatbot Widget (app/frontend/widget.js)
+
+This is the main JavaScript file for the VNRVJIET Admissions Chatbot widget with enhanced features including Speech-to-Text (STT), Text-to-Speech (TTS), and hyperlink support.
+
+## Key Features Implemented:
+
+### 1. Multi-language Support (6 Languages)
+- English, Hindi, Telugu, Tamil, Marathi, Kannada
+- Dynamic language switching
+- Language persistence across sessions
+- Proper font support for Indian scripts
+
+### 2. Speech-to-Text (Continuous Listening) - v30
+- Continuous listening mode like Google Speech Recognition
+- Auto-stop after 4 seconds of silence
+- Real-time interim results display
+- Multiple sentence support with text appending
+- Manual stop capability
+- Enhanced error handling
+- Visual feedback without changing microphone icon
+- Cross-browser compatibility
+
+### 3. Text-to-Speech (Enhanced) - v26-v28
+- Multi-language voice support
+- Intelligent voice matching (3-tier fallback)
+- Enhanced error handling and diagnostics
+- Voice pre-loading and voiceschanged event handling
+- Detailed console logging for troubleshooting
+- Works with 6 Indian languages
+
+### 4. Hyperlink Support - v27
+- Auto-detection of URLs (http/https)
+- Markdown link support [text](url)
+- Blue, underlined, clickable links
+- Opens in new tab with security attributes
+- Works in lists and any text format
+
+### 5. Cutoff Data Formatting - v28
+- Each cutoff field on separate line
+- Proper spacing and alignment
+- Enhanced readability
+- Consistent formatting across all cutoff responses
+
+### 6. Quick Options System
+- Category-based navigation
+- Follow-up questions
+- Context-aware responses
+- Clickable buttons for common queries
+
+### 7. Streaming Responses
+- Real-time message streaming
+- Typing indicator
+- Auto-scroll functionality
+- Enhanced user experience
+
+## Technical Implementation:
+
+### Speech Recognition (STT) Functions:
+```javascript
+function toggleSpeechRecognition() - Main toggle function
+function startContinuousListening() - Starts continuous listening mode
+function stopListening() - Stops speech recognition
+function updateListeningUI(listening) - Updates UI feedback
+function startAutoStopTimer() - Manages auto-stop functionality
+function resetAutoStopTimer() - Resets silence timer on speech
+```
+
+### Text-to-Speech (TTS) Functions:
+```javascript
+function speakText(text, buttonElement) - Main TTS function
+function stopSpeech() - Stops current speech
+function resetSpeechState(buttonElement) - Resets TTS state
+function detectLanguageFromText(text) - Language detection (backup)
+```
+
+### Auto-Stop Logic:
+- Monitors speech activity with lastSpeechTime tracking
+- 4-second silence detection with 1-second check intervals
+- Timer resets on any speech activity (interim or final)
+- Prevents infinite listening and battery drain
+
+### Voice Matching Algorithm:
+1. Exact language match (e.g., "te-IN")
+2. Language prefix match (e.g., "te")
+3. Voice name matching (e.g., "telugu", "తెలుగు")
+4. Fallback to default system voice
+
+### Language Support:
+- English (en-US)
+- Hindi (hi-IN) - हिन्दी
+- Telugu (te-IN) - తెలుగు
+- Tamil (ta-IN) - தமிழ்
+- Marathi (mr-IN) - मराठी
+- Kannada (kn-IN) - ಕನ್ನಡ
+
+### Browser Compatibility:
+- Chrome/Edge: Excellent (full continuous STT, built-in TTS voices)
+- Safari: Good (iOS 14.5+ for STT, needs voice download for TTS)
+- Firefox: Limited (basic STT, OS voices for TTS)
+- Mobile: Responsive design, touch-friendly
+
+### Security Features:
+- All external links include rel="noopener noreferrer"
+- HTTPS required for microphone access
+- Proper error handling for permission denials
+- Graceful fallbacks for unsupported features
+
+## Performance Optimizations:
+- Efficient event handling
+- Memory cleanup for timers and speech objects
+- Hardware-accelerated CSS animations
+- Minimal DOM manipulation
+- Batch processing for embeddings
+
+## Error Handling:
+- Comprehensive try-catch blocks
+- User-friendly error messages
+- Graceful degradation for unsupported browsers
+- Automatic recovery mechanisms
+- Detailed console logging for debugging
+
+## UI/UX Enhancements:
+- Smooth animations and transitions
+- Visual feedback for all interactive elements
+- Consistent design language
+- Accessibility considerations
+- Mobile-responsive layout
+
+This widget provides a complete, professional chatbot experience for VNRVJIET admissions with advanced voice features, multi-language support, and modern web standards compliance.
+
+## Usage Instructions:
+1. Include widget.html in your webpage
+2. Ensure proper API keys are configured
+3. Test voice features require HTTPS and microphone permissions
+4. Clear browser cache when deploying updates
+5. Use provided test files for validation
+
+## Version History:
+- v23: Initial STT implementation
+- v24: TTS crash fixes
+- v25: TTS language detection
+- v26: TTS voice loading enhancements
+- v27: Hyperlink support
+- v28: Cutoff field formatting
+- v29: Enhanced TTS UI states
+- v30: Continuous STT with auto-stop (Current)

@@ -138,19 +138,47 @@ CO-CURRICULAR ACTIVITIES
 - Workshops & Professional Development Programs
 
 ------------------------------------------------------------
+ADMISSION QUOTAS & FEES
+------------------------------------------------------------
+
+B.Tech Application Fee : ₹2,000
+M.Tech Application Fee : ₹1,000
+⚠️ Any fee paid is non-refundable.
+
+Branch Codes:
+- B.Tech Branch Code (EAPCET)         : VJEC
+- M.Tech / MCA Branch Code            : VJEC1
+
+B.Tech Admission Quotas:
+1. Convenor / Category-A    – 70% of seats (via TS EAPCET)
+2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+3. Supernumerary – FN / OCI / CIWG (additional seats, over and above sanctioned intake)
+
+M.Tech / MCA Admission Quotas:
+1. Convenor / Category-A    – 70% of seats
+2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+(Supernumerary quota is NOT applicable for M.Tech / MCA)
+
+Fee Structure (2025):
+- M.Tech Fee : ₹1,30,000 per annum
+- MCA Fee    : ₹27,000 per annum
+
+------------------------------------------------------------
 SCHOLARSHIPS
 ------------------------------------------------------------
 
 Scholarships are available for students aspiring to join based on academic excellence.
 
 ------------------------------------------------------------
-FOREIGN ADMISSIONS
+FOREIGN ADMISSIONS (SUPERNUMERARY QUOTA)
 ------------------------------------------------------------
 
-Supernumerary Quota Seats are available for:
+Supernumerary Quota seats are available for B.Tech ONLY (additional seats, over and above sanctioned intake):
 - Foreign Nationals (FN)
 - Overseas Citizens of India (OCI)
 - Children of Indian Workers in Gulf Countries (CIWG)
+
+⚠️ Supernumerary quota does NOT apply to M.Tech / MCA admissions.
 
 Eligibility Criteria:
 

@@ -21,6 +21,7 @@
   const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
+  const micBtn = document.getElementById("mic-btn");
   const inputArea = document.getElementById("chat-input-area");
   const welcomePopup = document.getElementById("welcome-popup");
   const popupClose = document.getElementById("popup-close");
@@ -31,6 +32,14 @@
   let isSending = false;
   let sessionId = sessionStorage.getItem("chatbot_session") || generateId();
   sessionStorage.setItem("chatbot_session", sessionId);
+  
+  // TTS state
+  let currentSpeech = null;
+  let isSpeaking = false;
+  
+  // STT state
+  let recognition = null;
+  let isListening = false;
   
   // Language preference - check if user has explicitly selected a language
   let currentLanguage = sessionStorage.getItem("chatbot_language") || "en";
@@ -243,7 +252,7 @@
     });
   }
 
-  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks) */
+  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks, links) */
   function renderMarkdown(text) {
     // ── Step 1: wrap field lines (**Label:** value) in block divs LINE BY LINE
     // Using split/map is more reliable than a /^$/gm regex (avoids CRLF edge cases).
@@ -253,7 +262,7 @@
         // Match lines like **Branch:** CSE  or  **First Rank (Opening):** 1,714
         // The colon sits INSIDE the closing **: **Label:**
         if (/^\*\*[A-Za-z][^*]*:\*\*\s*.+/.test(line)) {
-          return '<div style="display:block!important;margin:2px 0">' + line + "</div>";
+          return '<div class="cutoff-field" style="display:block!important;margin:3px 0;clear:both;width:100%;">' + line + "</div>";
         }
         return line;
       })
@@ -270,6 +279,10 @@
       .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
       // Inline code `text`
       .replace(/`([^`]+)`/g, "<code>$1</code>")
+      // Markdown links: [text](url)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0066cc;text-decoration:underline;">$1</a>')
+      // Auto-detect plain URLs (http:// or https://)
+      .replace(/(^|[^"'\(>])((https?:\/\/)[^\s<]+[^\s<.,;!?'"\)])/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0066cc;text-decoration:underline;">$2</a>')
       // Unordered list items
       .replace(/^[\s]*[-•]\s+(.+)$/gm, "<li>$1</li>")
       // Ordered list items
@@ -304,6 +317,9 @@
       if (inputArea.style.display !== "none") {
         inputEl.focus();
       }
+    } else {
+      // Stop speech when closing chat
+      stopSpeech();
     }
   }
 
@@ -322,6 +338,8 @@
       isOpen = false;
       container.classList.remove("visible");
       toggleBtn.classList.remove("open");
+      // Stop speech when closing
+      stopSpeech();
     }
   }
 
@@ -365,7 +383,7 @@
       "Hostel & accommodation details?",
       "Placement & internship info?",
       "Campus facilities & labs?",
-      "NRI / Management quota process?",
+      "Management quota process?(NRI/NRI Sponsored or Category B)",
       "Talk to admission department",
     ],
   };
@@ -495,7 +513,702 @@
   }
 
   /** Return to home screen while preserving chat history */
+  // ── Text-to-Speech Functions ─────────────────────────────────
+  
+  /**
+   * Create TTS button for bot messages
+   */
+  function createTTSButton(text) {
+    const ttsBtn = document.createElement("button");
+    ttsBtn.className = "tts-button";
+    ttsBtn.setAttribute("aria-label", "Listen to response");
+    ttsBtn.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+    
+    // Check if browser supports Speech Synthesis
+    if (!('speechSynthesis' in window)) {
+      ttsBtn.disabled = true;
+      ttsBtn.title = "Text-to-speech not supported in your browser";
+      return ttsBtn;
+    }
+    
+    // Store reference to the text for this button
+    ttsBtn.dataset.ttsText = text;
+    
+    ttsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // Prevent double-clicking
+      if (ttsBtn.disabled) return;
+      
+      // Check if this button is currently playing
+      const isThisButtonPlaying = ttsBtn.classList.contains("playing");
+      
+      if (isThisButtonPlaying) {
+        // Stop current speech
+        stopSpeech();
+      } else {
+        // Stop any other speech first
+        stopSpeech();
+        
+        // Small delay to ensure previous speech is fully stopped
+        setTimeout(() => {
+          // Start new speech
+          speakText(text, ttsBtn);
+        }, 100);
+      }
+    });
+    
+    return ttsBtn;
+  }
+  
+  /**
+   * Convert text to speech with improved error handling and dynamic language detection
+   */
+  function speakText(text, buttonElement) {
+    try {
+      // Ensure speechSynthesis is available
+      if (!window.speechSynthesis) {
+        console.error("Speech synthesis not available");
+        return;
+      }
+      
+      // Cancel any existing speech first (safety check)
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+      }
+      
+      // Clean markdown and HTML from text
+      let cleanText = text
+        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/\*\*/g, '') // Remove bold markdown
+        .replace(/\*/g, '') // Remove italic markdown
+        .replace(/`/g, '') // Remove code markdown
+        .replace(/#{1,6}\s/g, '') // Remove heading markers
+        .replace(/\n+/g, '. ') // Replace line breaks with pauses
+        .trim();
+      
+      // Validate text
+      if (!cleanText || cleanText.length === 0) {
+        console.warn("No text to speak");
+        return;
+      }
+      
+      // Limit text length to prevent issues (max 5000 chars)
+      if (cleanText.length > 5000) {
+        cleanText = cleanText.substring(0, 5000) + "...";
+      }
+      
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      // ALWAYS use the user's selected language (currentLanguage)
+      // This is more reliable than auto-detection
+      const langMap = {
+        'en': 'en-US',
+        'hi': 'hi-IN',
+        'te': 'te-IN',
+        'ta': 'ta-IN',
+        'mr': 'mr-IN',
+        'kn': 'kn-IN'
+      };
+      
+      const targetLang = langMap[currentLanguage] || 'en-US';
+      utterance.lang = targetLang;
+      
+      console.log("🔊 TTS Details:");
+      console.log("  - Selected Language:", currentLanguage);
+      console.log("  - Target Voice Lang:", targetLang);
+      console.log("  - Text Preview:", cleanText.substring(0, 50) + "...");
+      
+      // Get available voices and try to use the best match
+      const voices = window.speechSynthesis.getVoices();
+      console.log("  - Available voices:", voices.length);
+      
+      // Find best matching voice for the language
+      let matchingVoice = null;
+      
+      // First try: exact lang match (e.g., "te-IN")
+      matchingVoice = voices.find(voice => voice.lang === targetLang);
+      
+      // Second try: language prefix match (e.g., "te")
+      if (!matchingVoice) {
+        const langPrefix = targetLang.split('-')[0];
+        matchingVoice = voices.find(voice => voice.lang.startsWith(langPrefix));
+      }
+      
+      // Third try: any voice with the language name
+      if (!matchingVoice) {
+        const langNames = {
+          'te-IN': ['telugu', 'తెలుగు'],
+          'hi-IN': ['hindi', 'हिन्दी'],
+          'ta-IN': ['tamil', 'தமிழ்'],
+          'kn-IN': ['kannada', 'ಕನ್ನಡ'],
+          'mr-IN': ['marathi', 'मराठी'],
+          'en-US': ['english']
+        };
+        
+        const names = langNames[targetLang] || [];
+        for (const name of names) {
+          matchingVoice = voices.find(voice => 
+            voice.name.toLowerCase().includes(name.toLowerCase()) ||
+            voice.lang.toLowerCase().includes(name.toLowerCase())
+          );
+          if (matchingVoice) break;
+        }
+      }
+      
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+        console.log("  - Using voice:", matchingVoice.name, "(" + matchingVoice.lang + ")");
+      } else {
+        console.warn("  - ⚠️ No matching voice found for", targetLang);
+        console.warn("  - Available voice languages:", voices.map(v => v.lang).join(", "));
+        console.warn("  - Will use default voice (may not be correct)");
+      }
+      
+      // Speech settings
+      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
+      // Event handlers with improved error handling
+      utterance.onstart = function() {
+        console.log("  - ✅ Speech started successfully");
+        isSpeaking = true;
+        if (buttonElement) {
+          buttonElement.classList.add("playing");
+          buttonElement.innerHTML = '<span class="tts-icon">⏸</span> Stop';
+        }
+      };
+      
+      utterance.onend = function() {
+        console.log("  - ✅ Speech ended");
+        resetSpeechState(buttonElement);
+      };
+      
+      utterance.onerror = function(event) {
+        console.error("  - ❌ Speech error:", event.error);
+        
+        // Handle specific errors
+        if (event.error === 'interrupted') {
+          console.log("  - Speech was interrupted (normal)");
+        } else if (event.error === 'canceled') {
+          console.log("  - Speech was canceled (normal)");
+        } else if (event.error === 'not-allowed') {
+          console.error("  - ❌ Speech not allowed - check permissions");
+        } else if (event.error === 'language-unavailable') {
+          console.error("  - ❌ Language voice not available:", targetLang);
+          console.error("  - Install language pack or use different browser");
+        } else {
+          console.error("  - ❌ Unexpected error:", event.error);
+        }
+        
+        resetSpeechState(buttonElement);
+      };
+      
+      utterance.onpause = function() {
+        console.log("  - Speech paused");
+      };
+      
+      utterance.onresume = function() {
+        console.log("  - Speech resumed");
+      };
+      
+      // Store current speech reference
+      currentSpeech = utterance;
+      isSpeaking = true;
+      
+      // Try to speak with error handling
+      try {
+        window.speechSynthesis.speak(utterance);
+        
+        // Fallback: If speech doesn't start within 1 second, reset
+        setTimeout(() => {
+          if (isSpeaking && !window.speechSynthesis.speaking) {
+            console.warn("  - ⚠️ Speech failed to start, resetting");
+            resetSpeechState(buttonElement);
+          }
+        }, 1000);
+        
+      } catch (error) {
+        console.error("  - ❌ Error calling speak():", error);
+        resetSpeechState(buttonElement);
+      }
+      
+    } catch (error) {
+      console.error("❌ Error in speakText:", error);
+      resetSpeechState(buttonElement);
+    }
+  }
+  
+  /**
+   * Detect language from text content using Unicode ranges
+   * NOTE: Currently not used - using currentLanguage instead for reliability
+   */
+  function detectLanguageFromText(text) {
+    if (!text || text.length === 0) return null;
+    
+    // Get first 200 characters for detection (enough to determine language)
+    const sample = text.substring(0, 200);
+    
+    // Count characters from different scripts
+    let counts = {
+      devanagari: 0,  // Hindi, Marathi
+      telugu: 0,
+      tamil: 0,
+      kannada: 0,
+      latin: 0        // English
+    };
+    
+    for (let char of sample) {
+      const code = char.charCodeAt(0);
+      
+      // Devanagari (Hindi, Marathi): U+0900 to U+097F
+      if (code >= 0x0900 && code <= 0x097F) {
+        counts.devanagari++;
+      }
+      // Telugu: U+0C00 to U+0C7F
+      else if (code >= 0x0C00 && code <= 0x0C7F) {
+        counts.telugu++;
+      }
+      // Tamil: U+0B80 to U+0BFF
+      else if (code >= 0x0B80 && code <= 0x0BFF) {
+        counts.tamil++;
+      }
+      // Kannada: U+0C80 to U+0CFF
+      else if (code >= 0x0C80 && code <= 0x0CFF) {
+        counts.kannada++;
+      }
+      // Latin (English): U+0041 to U+007A
+      else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) {
+        counts.latin++;
+      }
+    }
+    
+    // Determine dominant script
+    const maxCount = Math.max(...Object.values(counts));
+    
+    // Need at least 20% of characters to be from a script to detect it
+    const threshold = sample.length * 0.2;
+    
+    if (maxCount < threshold) {
+      // Not enough script characters, use current language
+      return currentLanguage;
+    }
+    
+    // Find which script has the most characters
+    if (counts.telugu === maxCount && counts.telugu >= threshold) {
+      return 'te';
+    } else if (counts.tamil === maxCount && counts.tamil >= threshold) {
+      return 'ta';
+    } else if (counts.kannada === maxCount && counts.kannada >= threshold) {
+      return 'kn';
+    } else if (counts.devanagari === maxCount && counts.devanagari >= threshold) {
+      // Could be Hindi or Marathi - check current language preference
+      if (currentLanguage === 'mr') {
+        return 'mr';
+      } else {
+        return 'hi';
+      }
+    } else if (counts.latin === maxCount) {
+      return 'en';
+    }
+    
+    // Fallback to current language
+    return currentLanguage;
+  }
+  
+  /**
+   * Reset speech state and button UI
+   */
+  function resetSpeechState(buttonElement) {
+    isSpeaking = false;
+    currentSpeech = null;
+    
+    if (buttonElement && buttonElement.classList) {
+      buttonElement.classList.remove("playing");
+      buttonElement.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+    }
+    
+    // Reset all TTS buttons as safety measure
+    try {
+      document.querySelectorAll('.tts-button.playing').forEach(btn => {
+        btn.classList.remove('playing');
+        btn.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+      });
+    } catch (error) {
+      console.error("Error resetting buttons:", error);
+    }
+  }
+  
+  /**
+   * Stop any ongoing speech with improved reliability
+   */
+  function stopSpeech() {
+    try {
+      // Check if speechSynthesis exists
+      if (!window.speechSynthesis) {
+        return;
+      }
+      
+      // Cancel any ongoing or pending speech
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+      }
+      
+      // Wait a moment for cancel to complete
+      setTimeout(() => {
+        // Double-check and cancel again if needed
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+        }
+        
+        // Reset state
+        resetSpeechState(null);
+      }, 50);
+      
+    } catch (error) {
+      console.error("Error stopping speech:", error);
+      // Still try to reset state
+      resetSpeechState(null);
+    }
+  }
+  
+  /**
+   * Pause speech (for future use)
+   */
+  function pauseSpeech() {
+    try {
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+      }
+    } catch (error) {
+      console.error("Error pausing speech:", error);
+    }
+  }
+  
+  /**
+   * Resume speech (for future use)
+   */
+  function resumeSpeech() {
+    try {
+      if (window.speechSynthesis && window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch (error) {
+      console.error("Error resuming speech:", error);
+    }
+  }
+  
+  // ── Speech-to-Text Functions ─────────────────────────────────
+  
+  /**
+   * Initialize Speech Recognition
+   */
+  function initSpeechRecognition() {
+    // Check browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      console.warn("Speech Recognition not supported in this browser");
+      if (micBtn) {
+        micBtn.disabled = true;
+        micBtn.title = "Speech recognition not supported in your browser";
+      }
+      return;
+    }
+    
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    // Set language based on current selection
+    const langMap = {
+      'en': 'en-US',
+      'hi': 'hi-IN',
+      'te': 'te-IN',
+      'ta': 'ta-IN',
+      'mr': 'mr-IN',
+      'kn': 'kn-IN'
+    };
+    recognition.lang = langMap[currentLanguage] || 'en-US';
+    
+    // Event handlers for continuous listening with auto-stop
+    recognition.onstart = function() {
+      console.log("🎤 Continuous speech recognition started for language:", recognition.lang);
+      updateListeningUI(true);
+      resetAutoStopTimer();
+    };
+    
+    recognition.onresult = function(event) {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      
+      // Process all results
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+      
+      // Reset auto-stop timer when we get any speech activity
+      if (finalTranscript || interimTranscript) {
+        resetAutoStopTimer();
+      }
+      
+      console.log("🎤 Speech detected (final):", finalTranscript);
+      console.log("🎤 Speech detected (interim):", interimTranscript);
+      
+      // Update input field with results
+      if (inputEl) {
+        if (finalTranscript) {
+          // Final result - append to existing text or replace
+          const currentValue = inputEl.value.replace(/\s*$/, ''); // Remove trailing spaces
+          const newValue = currentValue ? currentValue + ' ' + finalTranscript : finalTranscript;
+          inputEl.value = newValue.trim();
+          
+          // Clear interim styling
+          inputEl.style.fontStyle = '';
+          inputEl.style.opacity = '';
+          
+          // Continue listening for more speech
+          showListeningStatus("Listening... (say more or wait to stop)");
+          
+        } else if (interimTranscript) {
+          // Show interim results with visual indication
+          const currentValue = inputEl.value.replace(/\s*$/, ''); // Remove trailing spaces
+          const displayValue = currentValue ? currentValue + ' ' + interimTranscript : interimTranscript;
+          inputEl.value = displayValue;
+          
+          // Style interim text
+          inputEl.style.fontStyle = 'italic';
+          inputEl.style.opacity = '0.8';
+          
+          showListeningStatus("Listening...");
+        }
+      }
+    };
+    
+    recognition.onerror = function(event) {
+      console.error("🎤 Speech recognition error:", event.error);
+      
+      let errorMessage = "Speech recognition error";
+      
+      // Handle specific errors with user-friendly messages
+      switch (event.error) {
+        case 'no-speech':
+          // Don't treat no-speech as error in continuous mode
+          console.log("🎤 No speech detected (normal in continuous mode)");
+          return; // Don't stop listening
+        case 'audio-capture':
+          errorMessage = "Microphone not available";
+          break;
+        case 'not-allowed':
+          errorMessage = "Microphone permission denied";
+          break;
+        case 'network':
+          errorMessage = "Network error. Check connection";
+          break;
+        case 'aborted':
+          // Normal when user stops
+          console.log("🎤 Recognition aborted (normal)");
+          return;
+        default:
+          errorMessage = `Recognition error: ${event.error}`;
+      }
+      
+      console.warn("🎤", errorMessage);
+      showListeningStatus("Error: " + errorMessage);
+      
+      // Stop listening on real errors
+      setTimeout(() => stopListening(), 2000);
+    };
+    
+    recognition.onend = function() {
+      console.log("🎤 Speech recognition ended");
+      updateListeningUI(false);
+      clearAutoStopTimer();
+    };
+  }
+  
+  /**
+   * Start/Stop speech recognition with continuous listening and auto-stop
+   */
+  function toggleSpeechRecognition() {
+    if (!recognition) {
+      initSpeechRecognition();
+      if (!recognition) return; // Still no support
+    }
+    
+    if (isListening) {
+      // Stop listening
+      stopListening();
+    } else {
+      // Start continuous listening
+      startContinuousListening();
+    }
+  }
+  
+  /**
+   * Start continuous speech recognition with auto-stop
+   */
+  function startContinuousListening() {
+    if (!recognition) return;
+    
+    // Update language before starting
+    const langMap = {
+      'en': 'en-US',
+      'hi': 'hi-IN',
+      'te': 'te-IN',
+      'ta': 'ta-IN',
+      'mr': 'mr-IN',
+      'kn': 'kn-IN'
+    };
+    recognition.lang = langMap[currentLanguage] || 'en-US';
+    
+    // Configure for continuous listening
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    
+    // Update UI to listening state (without changing icon)
+    updateListeningUI(true);
+    
+    // Start auto-stop timer
+    startAutoStopTimer();
+    
+    // Start recognition
+    try {
+      recognition.start();
+      console.log("🎤 Starting continuous speech recognition for:", recognition.lang);
+    } catch (error) {
+      console.error("Failed to start recognition:", error);
+      // Recognition might already be running, try to stop and restart
+      recognition.stop();
+      setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Failed to restart recognition:", e);
+          updateListeningUI(false);
+        }
+      }, 100);
+    }
+  }
+  
+  /**
+   * Stop speech recognition
+   */
+  function stopListening() {
+    if (!recognition) return;
+    
+    recognition.stop();
+    updateListeningUI(false);
+    clearAutoStopTimer();
+    console.log("🎤 Stopping speech recognition");
+  }
+  
+  /**
+   * Auto-stop timer management
+   */
+  let autoStopTimer = null;
+  let lastSpeechTime = null;
+  const AUTO_STOP_DELAY = 4000; // 4 seconds of silence
+  
+  function startAutoStopTimer() {
+    lastSpeechTime = Date.now();
+    
+    // Clear existing timer
+    clearAutoStopTimer();
+    
+    // Start new timer that checks periodically
+    autoStopTimer = setInterval(() => {
+      const silenceDuration = Date.now() - lastSpeechTime;
+      
+      if (silenceDuration > AUTO_STOP_DELAY && isListening) {
+        console.log("🎤 Auto-stopping after", silenceDuration, "ms of silence");
+        stopListening();
+      }
+    }, 1000); // Check every second
+  }
+  
+  function clearAutoStopTimer() {
+    if (autoStopTimer) {
+      clearInterval(autoStopTimer);
+      autoStopTimer = null;
+    }
+  }
+  
+  function resetAutoStopTimer() {
+    lastSpeechTime = Date.now();
+  }
+  
+  /**
+   * Update UI for listening state (without changing microphone icon)
+   */
+  function updateListeningUI(listening) {
+    if (!inputEl || !inputArea) return;
+    
+    if (listening) {
+      // Add listening state to input area
+      inputArea.classList.add('listening');
+      inputEl.classList.add('listening');
+      
+      // Show listening text
+      showListeningStatus("Listening...");
+      
+      isListening = true;
+    } else {
+      // Remove listening state
+      inputArea.classList.remove('listening');
+      inputEl.classList.remove('listening');
+      
+      // Hide listening text
+      hideListeningStatus();
+      
+      // Clear interim text styling
+      if (inputEl) {
+        inputEl.style.fontStyle = '';
+        inputEl.style.opacity = '';
+      }
+      
+      isListening = false;
+    }
+  }
+  
+  /**
+   * Show listening status text
+   */
+  function showListeningStatus(text) {
+    let statusEl = document.querySelector('.listening-status');
+    
+    if (!statusEl) {
+      statusEl = document.createElement('div');
+      statusEl.className = 'listening-status';
+      inputArea.appendChild(statusEl);
+    }
+    
+    statusEl.textContent = text;
+    statusEl.style.display = 'block';
+  }
+  
+  /**
+   * Hide listening status text
+   */
+  function hideListeningStatus() {
+    const statusEl = document.querySelector('.listening-status');
+    if (statusEl) {
+      statusEl.style.display = 'none';
+    }
+  }
+
   function returnToHome() {
+    // Stop any speech and listening
+    stopSpeech();
+    stopListening();
+    
     // Clear visual messages
     messagesEl.innerHTML = "";
     
@@ -654,6 +1367,10 @@
 
     if (sender === "bot") {
       bubble.innerHTML = renderMarkdown(text);
+      
+      // Add TTS button for bot messages
+      const ttsBtn = createTTSButton(text);
+      bubble.appendChild(ttsBtn);
     } else {
       bubble.textContent = text;
     }
@@ -1075,6 +1792,11 @@
     e.stopPropagation();
     returnToHome();
   });
+  
+  micBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleSpeechRecognition();
+  });
 
   sendBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1108,6 +1830,60 @@
   // ── Accessibility ────────────────────────────────────────────
   toggleBtn.setAttribute("aria-label", "Open chat");
   closeBtn.setAttribute("aria-label", "Close chat");
+  
+  // ── Page Visibility Handler ──────────────────────────────────
+  // Stop speech when user switches tabs or minimizes browser
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopSpeech();
+    }
+  });
+  
+  // Stop speech when page is about to unload
+  window.addEventListener("beforeunload", () => {
+    stopSpeech();
+  });
+
+  // ── Initialize Speech Recognition ────────────────────────────
+  // Initialize STT when page loads (will check browser support)
+  initSpeechRecognition();
+  
+  // Initialize microphone with simple icon (no state changes)
+  if (micBtn) {
+    micBtn.innerHTML = '🎤';
+    micBtn.title = "Click to start/stop voice input";
+  }
+  
+  // ── Initialize Speech Synthesis Voices ───────────────────────
+  // Load voices on page load (some browsers need this)
+  if (window.speechSynthesis) {
+    // Load voices immediately
+    window.speechSynthesis.getVoices();
+    
+    // Also listen for voiceschanged event (Chrome needs this)
+    window.speechSynthesis.addEventListener('voiceschanged', () => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log("🔊 Voices loaded:", voices.length);
+      
+      // Log available Indian language voices for debugging
+      const indianVoices = voices.filter(v => 
+        v.lang.includes('IN') || 
+        v.lang.startsWith('hi') || 
+        v.lang.startsWith('te') || 
+        v.lang.startsWith('ta') || 
+        v.lang.startsWith('kn') || 
+        v.lang.startsWith('mr')
+      );
+      
+      if (indianVoices.length > 0) {
+        console.log("  - Indian language voices available:");
+        indianVoices.forEach(v => console.log("    •", v.name, "(" + v.lang + ")"));
+      } else {
+        console.warn("  - ⚠️ No Indian language voices found");
+        console.warn("  - Install language packs or use Chrome for best support");
+      }
+    });
+  }
 
   // ── Auto-Popup on Page Load ──────────────────────────────────
   // Trigger auto-welcome messages after page loads

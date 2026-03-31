@@ -1,9 +1,19 @@
 VNRVJIET ADMISSIONS PROCEDURE
 
 ==============================
+APPLICATION FEES
+
+B.Tech Application Fee : ₹2,000
+M.Tech Application Fee : ₹1,000
+
+⚠️ Any fee paid is non-refundable.
+
+==============================
 **UNDERGRADUATE PROGRAMMES (UG)**
 
 **Admission to First Year – 4-Year B.Tech Programme**
+
+B.Tech Branch Code (EAPCET): **VJEC**
 
 Admissions into undergraduate programmes (B.Tech) for all branches are made as per the relevant Rules of the Government and norms/guidelines of the Telangana Council of Higher Education.
 
@@ -16,6 +26,8 @@ Based on rank obtained in state level entrance examination – TGEAPCET.
 Seats will be filled by the Convener, TGEAPCET.
 
 30% of seats – Category-B (Management Quota)
+
+Includes: Management / NRI / NRI Sponsored candidates.
 
 Filled by the management as per the relevant rules of the State Government.
 
@@ -33,7 +45,7 @@ Admission under FN / OCI / CIWG (Supernumerary Seats)
 
 As per GO.Ms.No:49 and circulars issued by AICTE:
 
-Supernumerary seats are filled under:
+Supernumerary seats are additional seats (over and above sanctioned intake) filled under:
 
 Foreign Nationals (FN)
 
@@ -42,6 +54,8 @@ Overseas Citizenship of India (OCI)
 Children of Indian Workers in Gulf Countries (CIWG)
 
 All admissions under this category are subject to approval of competent authorities.
+
+Note: Supernumerary quota applies to B.Tech ONLY. It is NOT applicable for M.Tech / MCA.
 
 Lateral Entry – Admission to Second Year B.Tech
 
@@ -64,6 +78,13 @@ All admissions made at institute level (Spot Admissions) are subject to approval
 
 Admissions into Postgraduate programmes (M.Tech & MCA) are made as per the rules of the Telangana Council of Higher Education (TGCHE).
 
+M.Tech / MCA Branch Code (TGPGECET/TGICET): **VJEC1**
+
+Fee Structure (2025):
+- M.Tech Fee: ₹1,30,000 per annum (applicable for academic year 2025)
+- MCA Fee: ₹27,000 per annum (applicable for academic year 2025)
+- ⚠️ Any fee paid is non-refundable.
+
 Admission to M.Tech & MCA – Two Year Post Graduate Programme
 
 70% seats – Category-A
@@ -76,7 +97,11 @@ Seats will be filled by the Convener.
 
 30% seats – Category-B
 
+Includes: Management / NRI / NRI Sponsored candidates.
+
 Filled by the management as per Government rules and TGCHE guidelines.
+
+(Note: Supernumerary quota is NOT applicable for M.Tech / MCA admissions.)
 
 All admissions made at institute level (Spot Admissions and Category-B) are subject to approval of competent authorities.
 

@@ -6,6 +6,11 @@ Category A Reporting Flowchart – Admissions 2025
 Overview:
 Students admitted under the Convenor Quota (Category A) must complete the following reporting steps in their respective departments.
 
+B.Tech Branch Code (EAPCET): VJEC
+B.Tech Application Fee: ₹2,000 (non-refundable)
+
+⚠️ Any fee paid is non-refundable.
+
 ------------------------------------------------------------
 DOCUMENTS REQUIRED FOR CATEGORY A (CONVENOR QUOTA) ADMISSION
 ------------------------------------------------------------
@@ -13,7 +18,7 @@ DOCUMENTS REQUIRED FOR CATEGORY A (CONVENOR QUOTA) ADMISSION
 Students must bring the following documents for admission:
 
 MANDATORY DOCUMENTS:
-1. TS EAMCET / JEE Main Rank Card (original + 2 photocopies)
+1. TS EAPCET / JEE Main Rank Card (original + 2 photocopies)
 2. Intermediate (10+2) Marks Memo (original + 2 photocopies)
 3. SSC (10th Class) Marks Memo (original + 2 photocopies)
 4. Transfer Certificate (TC) - Original

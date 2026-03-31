@@ -2,6 +2,25 @@ VNR Vignana Jyothi Institute of Engineering & Technology
 
 Course Intake Distribution
 
+Application Fees:
+  B.Tech Application Fee : ₹2,000 (non-refundable)
+  M.Tech Application Fee : ₹1,000 (non-refundable)
+⚠️ Any fee paid is non-refundable.
+
+Branch Codes:
+  B.Tech (EAPCET)    : VJEC
+  M.Tech / MCA       : VJEC1
+
+Admission Quotas (B.Tech):
+  1. Convenor / Category-A         – 70% of seats
+  2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+  3. Supernumerary (FN/OCI/CIWG)   – Additional seats (over and above intake)
+
+Admission Quotas (M.Tech):
+  1. Convenor / Category-A         – 70% of seats
+  2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+  (Supernumerary quota NOT applicable for M.Tech / MCA)
+
 Columns:
 S.No | Course Name | Course Code | Intake | Management | Category-B | NRI
 
