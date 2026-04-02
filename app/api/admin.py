@@ -13,7 +13,6 @@ logger.info("admin.py: starting imports...")
 
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from typing import Optional
 from io import BytesIO
 
