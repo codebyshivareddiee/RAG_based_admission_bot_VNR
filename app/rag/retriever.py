@@ -14,6 +14,9 @@ from __future__ import annotations
 import logging
 import asyncio
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+import re
 
 from openai import OpenAI, AsyncOpenAI
 from pinecone import Pinecone
@@ -26,6 +29,7 @@ settings = get_settings()
 _openai_client: OpenAI | None = None
 _async_openai_client: AsyncOpenAI | None = None
 _pinecone_index = None
+_DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 
 
 def _get_openai() -> OpenAI:
@@ -81,6 +85,77 @@ def _should_translate(query: str) -> bool:
         return False
     
     return True
+
+
+def _tokenize(text: str) -> list[str]:
+    return [token for token in re.findall(r"[a-z0-9]+", text.lower()) if len(token) > 2]
+
+
+@lru_cache(maxsize=1)
+def _load_local_document_chunks() -> list[tuple[str, str]]:
+    """Load local docs text files as a fallback retrieval corpus."""
+    if not _DOCS_DIR.exists():
+        return []
+
+    chunks: list[tuple[str, str]] = []
+    for path in sorted(_DOCS_DIR.rglob("*.txt")) + sorted(_DOCS_DIR.rglob("*.md")):
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        for block in re.split(r"\n\s*\n+", text):
+            snippet = block.strip()
+            if len(snippet) < 40:
+                continue
+            chunks.append((path.name, snippet))
+
+    return chunks
+
+
+def _fallback_local_retrieve(query: str, top_k: int, score_threshold: float) -> RetrievalResult:
+    """Keyword-based fallback over local docs when OpenAI embeddings are unavailable."""
+    query_tokens = set(_tokenize(query))
+    if not query_tokens:
+        return RetrievalResult()
+
+    scored_chunks: list[RetrievedChunk] = []
+    for filename, text in _load_local_document_chunks():
+        text_tokens = set(_tokenize(text))
+        if not text_tokens:
+            continue
+
+        overlap = query_tokens & text_tokens
+        if not overlap:
+            continue
+
+        score = len(overlap) / max(len(query_tokens), 1)
+        if score < score_threshold:
+            continue
+
+        scored_chunks.append(
+            RetrievedChunk(
+                text=text[:2000],
+                score=score,
+                source="local_docs",
+                year=0,
+                filename=filename,
+            )
+        )
+
+    scored_chunks.sort(key=lambda item: item.score, reverse=True)
+    selected = scored_chunks[:top_k]
+
+    context_parts = []
+    for i, chunk in enumerate(selected, 1):
+        context_parts.append(
+            f"[Source {i}: {chunk.filename} ({chunk.source}), relevance: {chunk.score:.2f}]\n{chunk.text}"
+        )
+
+    return RetrievalResult(
+        chunks=selected,
+        context_text="\n\n---\n\n".join(context_parts) if context_parts else "",
+    )
 
 
 def _translate_to_english(query: str) -> str:
@@ -190,41 +265,45 @@ def retrieve(
         search_query = _translate_to_english(query)
     
     # Embed the query (use translated version if non-English)
-    client = _get_openai()
-    response = client.embeddings.create(
-        input=[search_query],
-        model=settings.OPENAI_EMBEDDING_MODEL,
-    )
-    query_embedding = response.data[0].embedding
-
-    # Query Pinecone with MANDATORY college filter
-    index = _get_index()
-    results = index.query(
-        vector=query_embedding,
-        top_k=top_k,
-        include_metadata=True,
-        filter={"college": {"$eq": settings.COLLEGE_SHORT_NAME}},
-    )
-
-    # Use attribute access (works with Pinecone client v3+/v4+/v5+)
-    matches = getattr(results, "matches", None) or []
-
-    chunks: list[RetrievedChunk] = []
-    for match in matches:
-        score = getattr(match, "score", 0.0)
-        meta = getattr(match, "metadata", {}) or {}
-
-        if score < score_threshold:
-            continue
-        chunks.append(
-            RetrievedChunk(
-                text=meta.get("text", ""),
-                score=score,
-                source=meta.get("source", "unknown"),
-                year=meta.get("year", 0),
-                filename=meta.get("filename", ""),
-            )
+    try:
+        client = _get_openai()
+        response = client.embeddings.create(
+            input=[search_query],
+            model=settings.OPENAI_EMBEDDING_MODEL,
         )
+        query_embedding = response.data[0].embedding
+
+        # Query Pinecone with MANDATORY college filter
+        index = _get_index()
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k,
+            include_metadata=True,
+            filter={"college": {"$eq": settings.COLLEGE_SHORT_NAME}},
+        )
+
+        # Use attribute access (works with Pinecone client v3+/v4+/v5+)
+        matches = getattr(results, "matches", None) or []
+
+        chunks: list[RetrievedChunk] = []
+        for match in matches:
+            score = getattr(match, "score", 0.0)
+            meta = getattr(match, "metadata", {}) or {}
+
+            if score < score_threshold:
+                continue
+            chunks.append(
+                RetrievedChunk(
+                    text=meta.get("text", ""),
+                    score=score,
+                    source=meta.get("source", "unknown"),
+                    year=meta.get("year", 0),
+                    filename=meta.get("filename", ""),
+                )
+            )
+    except Exception as exc:
+        logger.warning(f"OpenAI/Pinecone retrieval failed, using local fallback: {exc}")
+        return _fallback_local_retrieve(query, top_k, score_threshold)
 
     # Build combined context
     context_parts = []
@@ -255,40 +334,44 @@ async def retrieve_async(
         search_query = await _translate_to_english_async(query)
     
     # Embed the query
-    client = _get_async_openai()
-    response = await client.embeddings.create(
-        input=[search_query],
-        model=settings.OPENAI_EMBEDDING_MODEL,
-    )
-    query_embedding = response.data[0].embedding
-
-    # Query Pinecone with MANDATORY college filter
-    index = _get_index()
-    results = index.query(
-        vector=query_embedding,
-        top_k=top_k,
-        include_metadata=True,
-        filter={"college": {"$eq": settings.COLLEGE_SHORT_NAME}},
-    )
-
-    matches = getattr(results, "matches", None) or []
-
-    chunks: list[RetrievedChunk] = []
-    for match in matches:
-        score = getattr(match, "score", 0.0)
-        meta = getattr(match, "metadata", {}) or {}
-
-        if score < score_threshold:
-            continue
-        chunks.append(
-            RetrievedChunk(
-                text=meta.get("text", ""),
-                score=score,
-                source=meta.get("source", "unknown"),
-                year=meta.get("year", 0),
-                filename=meta.get("filename", ""),
-            )
+    try:
+        client = _get_async_openai()
+        response = await client.embeddings.create(
+            input=[search_query],
+            model=settings.OPENAI_EMBEDDING_MODEL,
         )
+        query_embedding = response.data[0].embedding
+
+        # Query Pinecone with MANDATORY college filter
+        index = _get_index()
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k,
+            include_metadata=True,
+            filter={"college": {"$eq": settings.COLLEGE_SHORT_NAME}},
+        )
+
+        matches = getattr(results, "matches", None) or []
+
+        chunks: list[RetrievedChunk] = []
+        for match in matches:
+            score = getattr(match, "score", 0.0)
+            meta = getattr(match, "metadata", {}) or {}
+
+            if score < score_threshold:
+                continue
+            chunks.append(
+                RetrievedChunk(
+                    text=meta.get("text", ""),
+                    score=score,
+                    source=meta.get("source", "unknown"),
+                    year=meta.get("year", 0),
+                    filename=meta.get("filename", ""),
+                )
+            )
+    except Exception as exc:
+        logger.warning(f"OpenAI/Pinecone retrieval failed, using local fallback: {exc}")
+        return _fallback_local_retrieve(query, top_k, score_threshold)
 
     # Build combined context
     context_parts = []

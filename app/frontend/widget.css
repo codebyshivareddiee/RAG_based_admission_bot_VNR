@@ -345,20 +345,6 @@ html, body {
   line-height: 1.5;
 }
 
-.video-guide-link {
-  color: #0066cc;
-  text-decoration: underline;
-  font-weight: 600;
-  display: inline-block;
-  margin-top: 4px;
-  transition: color 0.2s;
-}
-
-.video-guide-link:hover {
-  color: #0052a3;
-  text-decoration: underline;
-}
-
 /* ── Messages Area ──────────────────────────────────────────── */
 
 .chat-messages {

@@ -212,6 +212,22 @@
       mr: "VNRVJIET मध्ये {program} पात्रता निकष काय आहेत?",
       kn: "VNRVJIET ನಲ್ಲಿ {program} ಅರ್ಹತೆ ಮಾನದಂಡಗಳು ಯಾವುವು?",
     },
+    // ── Fee guided-flow translations ───────────────────────────
+    fees_sub_prompt: {
+      en: "What would you like to know?",
+    },
+    fees_type_structure: {
+      en: "Fee Structure",
+    },
+    fees_type_scholarships: {
+      en: "Scholarships",
+    },
+    fees_query_structure: {
+      en: "What is the {program} fee structure at VNRVJIET?",
+    },
+    fees_query_scholarships: {
+      en: "What scholarships are available for {program} at VNRVJIET?",
+    },
   };
 
   function t(key) {
@@ -1314,6 +1330,9 @@
         if (i === 0) {
           // Step 1 of guided admission flow instead of dumping all info at once
           showAdmissionTypeMenu();
+        } else if (enKey === "Fee Structure & Scholarships") {
+          // Step 1 of guided fee flow before asking program
+          showFeeTypeMenu();
         } else {
           sendMessage(cat, true);
         }
@@ -1365,7 +1384,13 @@
         e.stopPropagation();
         wrapper.remove();
         addUserMessage(t(key));
-        showProgramMenu(key);
+        showProgramMenu((program) => {
+          const queryKey = key === "admission_type_process"
+            ? "admission_query_process"
+            : "admission_query_eligibility";
+          const query = t(queryKey).replace("{program}", program);
+          sendMessage(query, true);
+        });
       });
       qr.appendChild(btn);
     });
@@ -1376,10 +1401,10 @@
   }
 
   /**
-   * Guided admission flow – Step 2
-   * Ask which program (B.Tech / M.Tech / MCA) then send the composed query.
+   * Shared guided flow step
+   * Ask which program (B.Tech / M.Tech / MCA), then run the provided callback.
    */
-  function showProgramMenu(admissionTypeKey) {
+  function showProgramMenu(onProgramSelected) {
     addBotMessage(t("admission_program_prompt"));
 
     const wrapper = document.createElement("div");
@@ -1395,12 +1420,43 @@
         e.stopPropagation();
         wrapper.remove();
         addUserMessage(program);
-        // Compose the specific query and send it to the backend
-        const queryKey = admissionTypeKey === "admission_type_process"
-          ? "admission_query_process"
-          : "admission_query_eligibility";
-        const query = t(queryKey).replace("{program}", program);
-        sendMessage(query, true);
+        onProgramSelected(program);
+      });
+      qr.appendChild(btn);
+    });
+
+    wrapper.appendChild(qr);
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
+  }
+
+  /**
+   * Guided fee flow – Step 1
+   * Ask whether user wants Fee Structure or Scholarships.
+   */
+  function showFeeTypeMenu() {
+    addBotMessage(t("fees_sub_prompt"));
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+
+    const qr = document.createElement("div");
+    qr.className = "quick-replies";
+
+    ["fees_type_structure", "fees_type_scholarships"].forEach((key) => {
+      const btn = document.createElement("button");
+      btn.textContent = t(key);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        wrapper.remove();
+        addUserMessage(t(key));
+        showProgramMenu((program) => {
+          const queryKey = key === "fees_type_structure"
+            ? "fees_query_structure"
+            : "fees_query_scholarships";
+          const query = t(queryKey).replace("{program}", program);
+          sendMessage(query, true);
+        });
       });
       qr.appendChild(btn);
     });

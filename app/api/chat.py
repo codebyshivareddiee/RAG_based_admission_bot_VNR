@@ -117,8 +117,8 @@ Context:
         temperature=0.3,
         max_tokens=1000
     )
-
-    return _normalize_admission_category_text(response.choices[0].message.content)
+    
+    return response.choices[0].message.content
 from app.utils.validators import (
     extract_branch, extract_category, extract_gender, 
     extract_year, extract_rank, extract_quota

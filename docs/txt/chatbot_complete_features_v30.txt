@@ -132,12 +132,6 @@ Last Rank (Closing):  4,136
 - Smooth message appearance animations
 - Progressive content loading
 
-#### Video Guidance:
-- "Watch Video Guide" link in chatbot disclaimer
-- Opens in new tab with proper styling
-- Blue underlined link for easy identification
-- Placeholder URL that can be updated with actual video
-
 ### 6. User Experience Enhancements
 
 #### Visual Design:
