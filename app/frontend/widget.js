@@ -399,7 +399,7 @@
       "Hostel & accommodation details?",
       "Placement & internship info?",
       "Campus facilities & labs?",
-      "Management quota process?(NRI/NRI Sponsored or Category B)",
+      "Management process? (Category-B and NRI)",
       "Talk to admission department",
     ],
   };
@@ -926,7 +926,7 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      console.warn("Speech Recognition not supported in this browser");
+      console.warn("🎤 Speech Recognition not supported in this browser");
       if (micBtn) {
         micBtn.disabled = true;
         micBtn.title = "Speech recognition not supported in your browser";
@@ -934,9 +934,13 @@
       return;
     }
     
+    console.log("🎤 Initializing Speech Recognition...");
     recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    
+    // CRITICAL: Set these to true for continuous listening with real-time feedback
+    // Setting to false initially can prevent proper speech capture in some browsers
+    recognition.continuous = true;
+    recognition.interimResults = true;
     
     // Set language based on current selection
     const langMap = {
@@ -951,22 +955,34 @@
     
     // Event handlers for continuous listening with auto-stop
     recognition.onstart = function() {
-      console.log("🎤 Continuous speech recognition started for language:", recognition.lang);
+      console.log("🎤 Speech recognition started successfully");
+      console.log("🎤 Language:", recognition.lang);
+      console.log("🎤 Continuous mode:", recognition.continuous);
+      console.log("🎤 Interim results:", recognition.interimResults);
       updateListeningUI(true);
       resetAutoStopTimer();
     };
     
     recognition.onresult = function(event) {
+      console.log("🎤 onresult event triggered");
+      console.log("🎤 Results count:", event.results.length);
+      console.log("🎤 Result index:", event.resultIndex);
+      
       let finalTranscript = '';
       let interimTranscript = '';
       
       // Process all results
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
+        const transcript = result[0].transcript;
+        const confidence = result[0].confidence;
+        
+        console.log(`🎤 Result ${i}: isFinal=${result.isFinal}, confidence=${confidence}, text="${transcript}"`);
+        
         if (result.isFinal) {
-          finalTranscript += result[0].transcript;
+          finalTranscript += transcript;
         } else {
-          interimTranscript += result[0].transcript;
+          interimTranscript += transcript;
         }
       }
       
@@ -975,8 +991,8 @@
         resetAutoStopTimer();
       }
       
-      console.log("🎤 Speech detected (final):", finalTranscript);
-      console.log("🎤 Speech detected (interim):", interimTranscript);
+      console.log("🎤 Final transcript:", finalTranscript || "(none)");
+      console.log("🎤 Interim transcript:", interimTranscript || "(none)");
       
       // Update input field with results
       if (inputEl) {
@@ -1009,7 +1025,9 @@
     };
     
     recognition.onerror = function(event) {
-      console.error("🎤 Speech recognition error:", event.error);
+      console.error("🎤 Speech recognition error event:", event);
+      console.error("🎤 Error type:", event.error);
+      console.error("🎤 Error message:", event.message || "No message provided");
       
       let errorMessage = "Speech recognition error";
       
@@ -1020,31 +1038,40 @@
           console.log("🎤 No speech detected (normal in continuous mode)");
           return; // Don't stop listening
         case 'audio-capture':
-          errorMessage = "Microphone not available";
+          errorMessage = "Microphone not available. Please check your microphone connection.";
+          console.error("🎤 Audio capture failed - microphone may not be available or in use");
           break;
         case 'not-allowed':
-          errorMessage = "Microphone permission denied";
+          errorMessage = "Microphone permission denied. Please allow microphone access.";
+          console.error("🎤 Microphone permission denied by user or browser");
           break;
         case 'network':
-          errorMessage = "Network error. Check connection";
+          errorMessage = "Network error. Check your internet connection.";
+          console.error("🎤 Network error - speech recognition requires internet connection");
           break;
         case 'aborted':
           // Normal when user stops
-          console.log("🎤 Recognition aborted (normal)");
+          console.log("🎤 Recognition aborted (normal user action)");
           return;
+        case 'service-not-allowed':
+          errorMessage = "Speech recognition service not allowed. Check browser settings.";
+          console.error("🎤 Speech recognition service not allowed");
+          break;
         default:
           errorMessage = `Recognition error: ${event.error}`;
+          console.error("🎤 Unhandled error type:", event.error);
       }
       
-      console.warn("🎤", errorMessage);
-      showListeningStatus("Error: " + errorMessage);
+      console.warn("🎤 Displaying error to user:", errorMessage);
+      showListeningStatus("❌ " + errorMessage);
       
       // Stop listening on real errors
-      setTimeout(() => stopListening(), 2000);
+      setTimeout(() => stopListening(), 3000);
     };
     
     recognition.onend = function() {
       console.log("🎤 Speech recognition ended");
+      console.log("🎤 isListening state:", isListening);
       updateListeningUI(false);
       clearAutoStopTimer();
     };
@@ -1054,16 +1081,24 @@
    * Start/Stop speech recognition with continuous listening and auto-stop
    */
   function toggleSpeechRecognition() {
+    console.log("🎤 toggleSpeechRecognition called, current isListening:", isListening);
+    
     if (!recognition) {
+      console.log("🎤 Recognition not initialized, initializing now...");
       initSpeechRecognition();
-      if (!recognition) return; // Still no support
+      if (!recognition) {
+        console.error("🎤 Failed to initialize recognition - browser may not support it");
+        return; // Still no support
+      }
     }
     
     if (isListening) {
       // Stop listening
+      console.log("🎤 Currently listening, stopping...");
       stopListening();
     } else {
       // Start continuous listening
+      console.log("🎤 Not listening, starting continuous listening...");
       startContinuousListening();
     }
   }
@@ -1072,7 +1107,12 @@
    * Start continuous speech recognition with auto-stop
    */
   function startContinuousListening() {
-    if (!recognition) return;
+    if (!recognition) {
+      console.error("🎤 Cannot start: recognition object not initialized");
+      return;
+    }
+    
+    console.log("🎤 Starting continuous listening...");
     
     // Update language before starting
     const langMap = {
@@ -1085,9 +1125,13 @@
     };
     recognition.lang = langMap[currentLanguage] || 'en-US';
     
+    console.log("🎤 Setting language to:", recognition.lang);
+    
     // Configure for continuous listening
     recognition.continuous = true;
     recognition.interimResults = true;
+    
+    console.log("🎤 Configuration set - continuous:", recognition.continuous, ", interimResults:", recognition.interimResults);
     
     // Update UI to listening state (without changing icon)
     updateListeningUI(true);
@@ -1097,18 +1141,26 @@
     
     // Start recognition
     try {
+      console.log("🎤 Calling recognition.start()...");
       recognition.start();
-      console.log("🎤 Starting continuous speech recognition for:", recognition.lang);
+      console.log("🎤 recognition.start() called successfully");
     } catch (error) {
-      console.error("Failed to start recognition:", error);
+      console.error("🎤 Failed to start recognition:", error);
+      console.error("🎤 Error name:", error.name);
+      console.error("🎤 Error message:", error.message);
+      
       // Recognition might already be running, try to stop and restart
+      console.log("🎤 Attempting to stop and restart...");
       recognition.stop();
       setTimeout(() => {
         try {
+          console.log("🎤 Retrying recognition.start()...");
           recognition.start();
+          console.log("🎤 Retry successful");
         } catch (e) {
-          console.error("Failed to restart recognition:", e);
+          console.error("🎤 Retry failed:", e);
           updateListeningUI(false);
+          showListeningStatus("❌ Failed to start microphone. Please try again.");
         }
       }, 100);
     }
@@ -1118,12 +1170,16 @@
    * Stop speech recognition
    */
   function stopListening() {
-    if (!recognition) return;
+    if (!recognition) {
+      console.warn("🎤 Cannot stop: recognition object not initialized");
+      return;
+    }
     
+    console.log("🎤 Stopping speech recognition...");
     recognition.stop();
     updateListeningUI(false);
     clearAutoStopTimer();
-    console.log("🎤 Stopping speech recognition");
+    console.log("🎤 Speech recognition stopped");
   }
   
   /**
@@ -1135,6 +1191,7 @@
   
   function startAutoStopTimer() {
     lastSpeechTime = Date.now();
+    console.log("🎤 Auto-stop timer started");
     
     // Clear existing timer
     clearAutoStopTimer();
@@ -1152,6 +1209,7 @@
   
   function clearAutoStopTimer() {
     if (autoStopTimer) {
+      console.log("🎤 Clearing auto-stop timer");
       clearInterval(autoStopTimer);
       autoStopTimer = null;
     }
@@ -1159,6 +1217,7 @@
   
   function resetAutoStopTimer() {
     lastSpeechTime = Date.now();
+    console.log("🎤 Auto-stop timer reset");
   }
   
   /**

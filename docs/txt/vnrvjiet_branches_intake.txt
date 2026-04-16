@@ -14,12 +14,16 @@ Branch Codes:
 
 Admission Quotas (B.Tech):
   1. Convenor / Category-A
-  2. Management – Category-B / NRI / NRI Sponsored
+   2. Management
+       - Category-B
+       - NRI
   3. Supernumerary (FN / OCI / CIWG) – Additional seats over sanctioned intake
 
 Admission Quotas (M.Tech / MCA):
   1. Convenor / Category-A
-  2. Management – Category-B / NRI / NRI Sponsored
+   2. Management
+       - Category-B
+       - NRI
   (Supernumerary quota NOT applicable for M.Tech / MCA)
 
 Fee Structure (2025):

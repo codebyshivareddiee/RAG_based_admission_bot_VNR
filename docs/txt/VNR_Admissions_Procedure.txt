@@ -25,9 +25,11 @@ Based on rank obtained in state level entrance examination – TGEAPCET.
 
 Seats will be filled by the Convener, TGEAPCET.
 
-30% of seats – Category-B (Management Quota)
+30% of seats – Management Quota
 
-Includes: Management / NRI / NRI Sponsored candidates.
+Management includes:
+- Category-B
+- NRI
 
 Filled by the management as per the relevant rules of the State Government.
 
@@ -95,15 +97,17 @@ For MCA: Based on TGICET ranks.
 
 Seats will be filled by the Convener.
 
-30% seats – Category-B
+30% seats – Management
 
-Includes: Management / NRI / NRI Sponsored candidates.
+Management includes:
+- Category-B
+- NRI
 
 Filled by the management as per Government rules and TGCHE guidelines.
 
 (Note: Supernumerary quota is NOT applicable for M.Tech / MCA admissions.)
 
-All admissions made at institute level (Spot Admissions and Category-B) are subject to approval of competent authorities.
+All admissions made at institute level (Spot Admissions and Management admissions) are subject to approval of competent authorities.
 
 Spot Admission Procedure for M.Tech & MCA
 
@@ -116,7 +120,7 @@ The institute will fill seats as per the guidelines issued by the Convener, TGPG
 ================================
 **IMPORTANT LINKS**
 
-College Website (Category-B & Spot Admissions):
+College Website (Management Admissions & Spot Admissions):
 www.vnrvjiet.ac.in
 
 Convener Websites:

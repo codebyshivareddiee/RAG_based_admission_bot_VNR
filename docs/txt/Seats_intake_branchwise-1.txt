@@ -13,16 +13,20 @@ Branch Codes:
 
 Admission Quotas (B.Tech):
   1. Convenor / Category-A         – 70% of seats
-  2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+    2. Management                    – 30% of seats
+         - Category-B
+         - NRI
   3. Supernumerary (FN/OCI/CIWG)   – Additional seats (over and above intake)
 
 Admission Quotas (M.Tech):
   1. Convenor / Category-A         – 70% of seats
-  2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+    2. Management                    – 30% of seats
+         - Category-B
+         - NRI
   (Supernumerary quota NOT applicable for M.Tech / MCA)
 
 Columns:
-S.No | Course Name | Course Code | Intake | Management | Category-B | NRI
+S.No | Course Name | Course Code | Intake | Management (Total 30%) | Management → Category-B | Management → NRI
 
 ---------------------------------------------------------------------
 

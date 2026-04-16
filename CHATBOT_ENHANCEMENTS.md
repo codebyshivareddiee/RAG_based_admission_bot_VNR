@@ -1,11 +1,10 @@
 # Chatbot Widget Enhancements
 
 ## Overview
-Three major accessibility and navigation features have been added to the VNRVJIET Admissions Chatbot widget:
+Two major accessibility and navigation features have been added to the VNRVJIET Admissions Chatbot widget:
 
 1. **Back Button** - Navigate to previous conversation states
-2. **Video Guidance Link** - Direct link to video tutorial
-3. **Voice Feature (Text-to-Speech)** - Listen to bot responses
+2. **Voice Feature (Text-to-Speech)** - Listen to bot responses
 
 ---
 
@@ -33,50 +32,7 @@ Three major accessibility and navigation features have been added to the VNRVJIE
 
 ---
 
-## 2. Video Guidance Link
-
-### Features
-- **Location**: Disclaimer section (below header, above chat messages)
-- **Styling**:
-  - Blue color (#0066cc)
-  - Underlined text
-  - 🎥 emoji icon
-  - Hover effect (darker blue)
-- **Link Behavior**:
-  - Opens in new tab (`target="_blank"`)
-  - Security attributes (`rel="noopener noreferrer"`)
-
-### How to Update Video URL
-
-**Current placeholder URL**: `https://www.youtube.com/watch?v=YOUR_VIDEO_ID`
-
-**To update with actual video**:
-
-1. Open `app/frontend/widget.html`
-2. Find line containing:
-   ```html
-   <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID"
-   ```
-3. Replace with your video URL:
-   ```html
-   <a href="https://www.youtube.com/watch?v=actual_video_id"
-   ```
-
-**Supported Video Platforms**:
-- YouTube: `https://www.youtube.com/watch?v=VIDEO_ID`
-- YouTube Embed: `https://www.youtube.com/embed/VIDEO_ID`
-- Vimeo: `https://vimeo.com/VIDEO_ID`
-- Direct MP4: `https://example.com/video.mp4`
-
-**Testing Checklist**:
-- ✅ Link opens in new tab
-- ✅ Video loads immediately (not blank page)
-- ✅ Link is visible and clearly styled
-- ✅ Works on mobile devices
-
----
-
-## 3. Voice Feature (Text-to-Speech)
+## 2. Voice Feature (Text-to-Speech)
 
 ### Features
 - **Button Location**: At bottom of each bot message bubble
@@ -130,12 +86,10 @@ utterance.volume = 1.0; // Volume
 ### 1. `app/frontend/widget.html`
 **Changes**:
 - Added back button in chat header
-- Added video guide link in disclaimer section
 
 ### 2. `app/frontend/widget.css`
 **New Styles**:
 - `.back-btn` - Back button styling
-- `.video-guide-link` - Video link styling
 - `.tts-button` - TTS button styling
 - `.tts-button.playing` - Playing state animation
 - `.tts-icon` - Speaker icon styling
@@ -159,12 +113,10 @@ utterance.volume = 1.0; // Volume
 
 ### Before
 - ❌ No way to navigate back
-- ❌ No video guidance available
 - ❌ Text-only responses (no audio option)
 
 ### After
 - ✅ Easy back navigation
-- ✅ Video guide accessible from chat
 - ✅ Audio playback for all bot responses
 - ✅ Multi-language TTS support
 - ✅ Better accessibility for all users
@@ -179,14 +131,7 @@ utterance.volume = 1.0; // Volume
 - [ ] Check button visibility toggles correctly
 - [ ] Test on mobile devices
 
-### 2. Video Link
-- [ ] Update placeholder URL with actual video
-- [ ] Verify link opens in new tab
-- [ ] Test video loads immediately
-- [ ] Check styling on different screen sizes
-- [ ] Test on mobile browsers
-
-### 3. Text-to-Speech
+### 2. Text-to-Speech
 - [ ] Test with short messages
 - [ ] Test with long responses
 - [ ] Verify multi-language support
@@ -209,14 +154,12 @@ Update version numbers in `widget.html`:
 
 ### Performance Impact
 - **Back Button**: Minimal (array operations only)
-- **Video Link**: None (static link)
 - **TTS**: Minimal (browser native API)
 
 ### Mobile Considerations
 - All features are responsive
 - TTS works on mobile browsers
 - Back button sized for touch targets
-- Video link touch-friendly
 
 ---
 
@@ -232,14 +175,6 @@ Update version numbers in `widget.html`:
 ---
 
 ## Support & Troubleshooting
-
-### Video Link Not Working
-**Issue**: Link opens blank page or doesn't load video
-**Solution**: 
-1. Verify URL is complete and correct
-2. Test URL in browser directly
-3. For YouTube, try embed URL: `https://www.youtube.com/embed/VIDEO_ID`
-4. Ensure video is public/unlisted (not private)
 
 ### TTS Not Working
 **Issue**: No audio plays when clicking Listen button

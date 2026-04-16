@@ -16,9 +16,12 @@ Branch Codes
 Seat Category
 -------------
 Under B.Tech admissions, the following quota applies:
+- **Convenor / Category-A** (70% of sanctioned intake):
+  Includes candidates admitted through EAPCET and JEE Main under the Convenor Quota.
 
-- **Management – Category-B / NRI / NRI Sponsored** (30% of sanctioned intake):
-  Includes NRI and NRI Sponsored candidates within Category-B seats.
+- **Management** (30% of sanctioned intake):
+  - Category-B
+  - NRI
 
 - **Supernumerary Seats** (additional seats, over and above sanctioned intake):
   Available for Foreign Nationals (FN), Overseas Citizens of India (OCI), and
@@ -27,13 +30,15 @@ Under B.Tech admissions, the following quota applies:
 ⚠️ Supernumerary quota applies to B.Tech ONLY. It is NOT available for M.Tech / MCA.
 
 For M.Tech / MCA:
-- Category-B (30%) includes Management / NRI / NRI Sponsored seats only.
+- Management (30%) includes:
+  - Category-B
+  - NRI
 
-Fee Structure (2025-26) – NRI / FN / OCI / CIWG Quota
+Fee Structure (FY 2025-26) – NRI / FN / OCI / CIWG Quota(B.Tech-may vary based on current exchange rates and branches)
 ------------------------------------------------------
 Fees are charged in USD:
 
-**₹4,30,000 per annum** ( × ₹86) – for:
+**($5,000 × ₹(current exchange rate))**per annum  – for:
 - Artificial Intelligence and Data Science (AIDS)
 - Computer Science and Business Systems (CSBS)
 - Computer Science and Engineering (CSE)
@@ -47,19 +52,19 @@ Fees are charged in USD:
 - Biotechnology
 - Robotics & Artificial Intelligence
 
-**₹3,01,000 per annum** ($3,500 × ₹86) – for:
+**($3,500 × ₹(current exchange rate))** per annum– for:
 - Civil Engineering
 - Electrical and Electronics Engineering (EEE)
 - Mechanical Engineering (ME)
 
-**₹2,58,000 per annum** ($3,000 × ₹86) – for:
+**($3,000 × ₹(current exchange rate))** per annum– for:
 - Automobile Engineering
 - Electronics and Instrumentation Engineering (EIE)
 
-Fee Conversion Reference:
-- $5,000 × ₹86 = ₹4,30,000 per annum
-- $3,500 × ₹86 = ₹3,01,000 per annum
-- $3,000 × ₹86 = ₹2,58,000 per annum
+Fee Conversion Reference(may vary based on current exchange rates and branches):
+- $5,000 × ₹(current exchange rate)
+- $3,500 × ₹(current exchange rate)
+- $3,000 × ₹(current exchange rate)
 
 Eligibility Criteria
 --------------------
@@ -78,7 +83,7 @@ Admissions under the Foreign category are open to candidates who meet ANY of the
    - The student is a citizen of another country and has completed education abroad.
    - Proof required: Passport, educational records, visa documents of the student and passport of the parents.
 
-Documents Required
+Documents Required(BTech-NRI/FN/OCI/CIWG)
 ------------------
 - Passport (original + 2 photocopies) – student's passport
 - OCI card (if applicable)

@@ -151,12 +151,16 @@ Branch Codes:
 
 B.Tech Admission Quotas:
 1. Convenor / Category-A    – 70% of seats (via TS EAPCET)
-2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+2. Management – 30% of seats
+    - Category-B
+    - NRI
 3. Supernumerary – FN / OCI / CIWG (additional seats, over and above sanctioned intake)
 
 M.Tech / MCA Admission Quotas:
 1. Convenor / Category-A    – 70% of seats
-2. Management – Category-B / NRI / NRI Sponsored – 30% of seats
+2. Management – 30% of seats
+    - Category-B
+    - NRI
 (Supernumerary quota is NOT applicable for M.Tech / MCA)
 
 Fee Structure (2025):

@@ -159,6 +159,220 @@ TRANSLATIONS = {
     },
 }
 
+# Cutoff-specific label translations
+CUTOFF_LABELS = {
+    "branch": {
+        "en": "Branch",
+        "hi": "शाखा",
+        "te": "శాఖ",
+        "ta": "கிளை",
+        "mr": "शाखा",
+        "kn": "ಶಾಖೆ",
+        "bn": "শাখা",
+        "gu": "શાખા",
+    },
+    "category": {
+        "en": "Category",
+        "hi": "श्रेणी",
+        "te": "వర్గం",
+        "ta": "வகை",
+        "mr": "प्रवर्ग",
+        "kn": "ವರ್ಗ",
+        "bn": "বিভাগ",
+        "gu": "શ્રેણી",
+    },
+    "gender": {
+        "en": "Gender",
+        "hi": "लिंग",
+        "te": "లింగం",
+        "ta": "பாலினம்",
+        "mr": "लिंग",
+        "kn": "ಲಿಂಗ",
+        "bn": "লিঙ্গ",
+        "gu": "લિંગ",
+    },
+    "boys": {
+        "en": "Boys",
+        "hi": "लड़के",
+        "te": "అబ్బాయిలు",
+        "ta": "ஆண்கள்",
+        "mr": "मुले",
+        "kn": "ಹುಡುಗರು",
+        "bn": "ছেলে",
+        "gu": "છોકરાઓ",
+    },
+    "girls": {
+        "en": "Girls",
+        "hi": "लड़कियां",
+        "te": "అమ్మాయిలు",
+        "ta": "பெண்கள்",
+        "mr": "मुली",
+        "kn": "ಹುಡುಗಿಯರು",
+        "bn": "মেয়ে",
+        "gu": "છોકરીઓ",
+    },
+    "quota": {
+        "en": "Quota",
+        "hi": "कोटा",
+        "te": "కోటా",
+        "ta": "ஒதுக்கீடு",
+        "mr": "कोटा",
+        "kn": "ಕೋಟಾ",
+        "bn": "কোটা",
+        "gu": "કોટા",
+    },
+    "convenor": {
+        "en": "Convenor",
+        "hi": "कन्वीनर",
+        "te": "కన్వీనర్",
+        "ta": "கன்வீனர்",
+        "mr": "कन्व्हीनर",
+        "kn": "ಸಂಚಾಲಕ",
+        "bn": "কনভিনার",
+        "gu": "કન્વીનર",
+    },
+    "management": {
+        "en": "Management",
+        "hi": "मैनेजमेंट",
+        "te": "మేనేజ్‌మెంట్",
+        "ta": "நிர்வாகம்",
+        "mr": "व्यवस्थापन",
+        "kn": "ನಿರ್ವಹಣೆ",
+        "bn": "ম্যানেজমেন্ট",
+        "gu": "સંચાલન",
+    },
+    "round": {
+        "en": "Round",
+        "hi": "राउंड",
+        "te": "రౌండ్",
+        "ta": "சுற்று",
+        "mr": "फेरी",
+        "kn": "ಸುತ್ತು",
+        "bn": "রাউন্ড",
+        "gu": "રાઉન્ડ",
+    },
+    "first_rank_opening": {
+        "en": "First Rank (Opening)",
+        "hi": "प्रथम रैंक (ओपनिंग)",
+        "te": "మొదటి ర్యాంక్ (ఓపెనింగ్)",
+        "ta": "முதல் தரவரிசை (தொடக்கம்)",
+        "mr": "प्रारंभिक रँक",
+        "kn": "ಮೊದಲ ಶ್ರೇಣಿ (ಪ್ರಾರಂಭ)",
+        "bn": "প্রথম র‍্যাঙ্ক (শুরু)",
+        "gu": "પ્રથમ રેન્ક (શરૂઆત)",
+    },
+    "last_rank_closing": {
+        "en": "Last Rank (Closing)",
+        "hi": "अंतिम रैंक (क्लोजिंग)",
+        "te": "చివరి ర్యాంక్ (క్లోజింగ్)",
+        "ta": "கடைசி தரவரிசை (இறுதி)",
+        "mr": "अंतिम रँक",
+        "kn": "ಕೊನೆಯ ಶ್ರೇಣಿ (ಮುಕ್ತಾಯ)",
+        "bn": "শেষ র‍্যাঙ্ক (সমাপ্তি)",
+        "gu": "છેલ્લું રેન્ક (સમાપ્તિ)",
+    },
+    "cutoff_ranks": {
+        "en": "Cutoff Ranks",
+        "hi": "कटऑफ रैंक",
+        "te": "కటాఫ్ ర్యాంక్‌లు",
+        "ta": "கட்ஆஃப் தரவரிசை",
+        "mr": "कटऑफ रँक",
+        "kn": "ಕಟ್‌ಆಫ್ ಶ್ರೇಣಿಗಳು",
+        "bn": "কাট অফ র‍্যাঙ্ক",
+        "gu": "કટઓફ રેન્ક",
+    },
+    "eapcet_cutoff_ranks": {
+        "en": "EAPCET Cutoff Ranks",
+        "hi": "EAPCET कटऑफ रैंक",
+        "te": "EAPCET కటాఫ్ ర్యాంక్‌లు",
+        "ta": "EAPCET கட்ஆஃப் தரவரிசை",
+        "mr": "EAPCET कटऑफ रँक",
+        "kn": "EAPCET ಕಟ್‌ಆಫ್ ಶ್ರೇಣಿಗಳು",
+        "bn": "EAPCET কাট অফ র‍্যাঙ্ক",
+        "gu": "EAPCET કટઓફ રેન્ક",
+    },
+    "year": {
+        "en": "Year",
+        "hi": "वर्ष",
+        "te": "సంవత్సరం",
+        "ta": "ஆண்டு",
+        "mr": "वर्ष",
+        "kn": "ವರ್ಷ",
+        "bn": "বছর",
+        "gu": "વર્ષ",
+    },
+    "trend_analysis": {
+        "en": "Trend Analysis",
+        "hi": "रुझान विश्लेषण",
+        "te": "ట్రెండ్ విశ్లేషణ",
+        "ta": "போக்கு பகுப்பாய்வு",
+        "mr": "ट्रेंड विश्लेषण",
+        "kn": "ಪ್ರವೃತ್ತಿ ವಿಶ್ಲೇಷಣೆ",
+        "bn": "ট্রেন্ড বিশ্লেষণ",
+        "gu": "ટ્રેન્ડ વિશ્લેષણ",
+    },
+    "warning_previous_year": {
+        "en": "WARNING: Based on previous year data. Cutoffs may vary.",
+        "hi": "चेतावनी: पिछले वर्ष के डेटा पर आधारित। कटऑफ भिन्न हो सकते हैं।",
+        "te": "హెచ్చరిక: మునుపటి సంవత్సర డేటా ఆధారంగా. కటాఫ్‌లు మారవచ్చు.",
+        "ta": "எச்சரிக்கை: முந்தைய ஆண்டு தரவின் அடிப்படையில். கட்ஆஃப் மாறுபடலாம்.",
+        "mr": "सूचना: मागील वर्षाच्या डेटावर आधारित. कटऑफ बदलू शकतात.",
+        "kn": "ಎಚ್ಚರಿಕೆ: ಹಿಂದಿನ ವರ್ಷದ ಡೇಟಾವನ್ನು ಆಧರಿಸಿದೆ. ಕಟ್‌ಆಫ್‌ಗಳು ಬದಲಾಗಬಹುದು.",
+        "bn": "সতর্কতা: পূর্ববর্তী বছরের ডেটার উপর ভিত্তি করে। কাট অফ পরিবর্তিত হতে পারে।",
+        "gu": "ચેતવણી: પાછલા વર્ષના ડેટા પર આધારિત. કટઓફ બદલાઈ શકે છે.",
+    },
+    "explore_department": {
+        "en": "Explore",
+        "hi": "एक्सप्लोर करें",
+        "te": "అన్వేషించండి",
+        "ta": "ஆராயுங்கள்",
+        "mr": "एक्सप्लोर करा",
+        "kn": "ಅನ್ವೇಷಿಸಿ",
+        "bn": "অন্বেষণ করুন",
+        "gu": "અન્વેષણ કરો",
+    },
+    "department": {
+        "en": "Department",
+        "hi": "विभाग",
+        "te": "విభాగం",
+        "ta": "துறை",
+        "mr": "विभाग",
+        "kn": "ವಿಭಾಗ",
+        "bn": "বিভাগ",
+        "gu": "વિભાગ",
+    },
+    "data_not_found": {
+        "en": "Data not found in Firestore for the specified filters",
+        "hi": "निर्दिष्ट फ़िल्टर के लिए Firestore में डेटा नहीं मिला",
+        "te": "పేర్కొన్న ఫిల్టర్‌ల కోసం Firestore లో డేటా కనుగొనబడలేదు",
+        "ta": "குறிப்பிட்ட வடிப்பான்களுக்கான தரவு Firestore இல் கிடைக்கவில்லை",
+        "mr": "निर्दिष्ट फिल्टरसाठी Firestore मध्ये डेटा आढळला नाही",
+        "kn": "ನಿರ್ದಿಷ್ಟಪಡಿಸಿದ ಫಿಲ್ಟರ್‌ಗಳಿಗಾಗಿ Firestore ನಲ್ಲಿ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ",
+        "bn": "নির্দিষ্ট ফিল্টারের জন্য Firestore এ ডেটা পাওয়া যায়নি",
+        "gu": "નિર્દિષ્ટ ફિલ્ટર્સ માટે Firestore માં ડેટા મળ્યો નથી",
+    },
+    "no_allotments": {
+        "en": "No allotments recorded",
+        "hi": "कोई आवंटन दर्ज नहीं",
+        "te": "కేటాయింపులు నమోదు చేయబడలేదు",
+        "ta": "ஒதுக்கீடு பதிவு செய்யப்படவில்லை",
+        "mr": "कोणतेही वाटप नोंदवलेले नाही",
+        "kn": "ಯಾವುದೇ ಹಂಚಿಕೆಗಳು ದಾಖಲಾಗಿಲ್ಲ",
+        "bn": "কোনও বরাদ্দ রেকর্ড করা হয়নি",
+        "gu": "કોઈ ફાળવણી નોંધાયેલ નથી",
+    },
+    "across_all_years": {
+        "en": "across all available years",
+        "hi": "सभी उपलब्ध वर्षों में",
+        "te": "అందుబాటులో ఉన్న అన్ని సంవత్సరాలలో",
+        "ta": "அனைத்து கிடைக்கக்கூடிய ஆண்டுகளிலும்",
+        "mr": "सर्व उपलब्ध वर्षांमध्ये",
+        "kn": "ಎಲ್ಲಾ ಲಭ್ಯವಿರುವ ವರ್ಷಗಳಲ್ಲಿ",
+        "bn": "সব উপলব্ধ বছরে",
+        "gu": "તમામ ઉપલબ્ધ વર્ષોમાં",
+    },
+}
+
 
 def get_translation(key: str, language: str = DEFAULT_LANGUAGE) -> str:
     """
@@ -437,3 +651,62 @@ def get_out_of_scope_message(language: str = DEFAULT_LANGUAGE) -> str:
     }
     
     return messages.get(language, messages["en"])
+
+
+def get_cutoff_label(label_key: str, language: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Get translated cutoff label for a given key and language.
+    
+    Args:
+        label_key: Key from CUTOFF_LABELS (e.g., 'branch', 'category', 'first_rank_opening')
+        language: Target language code (e.g., 'en', 'hi', 'te', 'ta', 'mr', 'kn')
+    
+    Returns:
+        Translated label string
+    """
+    if label_key not in CUTOFF_LABELS:
+        return label_key  # Return key as-is if not found
+    
+    return CUTOFF_LABELS[label_key].get(language, CUTOFF_LABELS[label_key].get("en", label_key))
+
+
+def format_gender_value(gender: str, language: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Format gender value with translation.
+    
+    Args:
+        gender: Gender value ('Boys', 'Girls', 'Any', etc.)
+        language: Target language code
+    
+    Returns:
+        Translated gender value
+    """
+    gender_lower = gender.lower()
+    
+    if gender_lower in ["boys", "male", "m"]:
+        return get_cutoff_label("boys", language)
+    elif gender_lower in ["girls", "female", "f"]:
+        return get_cutoff_label("girls", language)
+    else:
+        return gender  # Return as-is for 'Any' or other values
+
+
+def format_quota_value(quota: str, language: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Format quota value with translation.
+    
+    Args:
+        quota: Quota value ('Convenor', 'Management', etc.)
+        language: Target language code
+    
+    Returns:
+        Translated quota value
+    """
+    quota_lower = quota.lower()
+    
+    if quota_lower == "convenor":
+        return get_cutoff_label("convenor", language)
+    elif quota_lower == "management":
+        return get_cutoff_label("management", language)
+    else:
+        return quota  # Return as-is for other values

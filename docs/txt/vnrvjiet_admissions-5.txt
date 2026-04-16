@@ -23,16 +23,17 @@ B.Tech Branch Code (EAPCET): **VJEC**
    - Admissions handled by Telangana State Council of Higher Education (TSCHE)
    - Candidates must register on the TS EAPCET counselling portal and select VNRVJIET during web counselling
 
-2. **Management – Category-B / NRI / NRI Sponsored** – 30% of seats
+2. **Management** – 30% of seats
    - Through college-level counselling
    - Based on TS EAPCET / JEE Main rank
-   - Includes NRI and NRI Sponsored candidates
+   - Category-B
+   - NRI
    - Apply directly at the VNRVJIET admissions office or website
 
 3. **Supernumerary** (FN / OCI / CIWG) – Additional Seats (over and above sanctioned intake)
    - For Foreign Nationals (FN), Overseas Citizens of India (OCI), and Children of Indian Workers in Gulf Countries (CIWG)
    - Eligibility: OCI cardholders, OR children of parents working in GCC countries (Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, UAE) with a valid Visa/Work Permit, OR Foreign Nationals
-   - Fee (2025-26): $5000/yr (CSE/ECE/IT/AI branches), $3500/yr (Civil/EEE/ME), $3000/yr (Auto/EIE)
+   - Fee (2025-26): $5000/yr (CSE&Allied/ECE/IT/AI branches), $3500/yr (Civil/EEE/ME), $3000/yr (Auto/EIE)
    - Overall NRI/FN/OCI quota fee structure is $3,000–$5,000, may vary according to branch
    - Contact admissions office for step-by-step process: admissionsenquiry@vnrvjiet.in | +91-40-2304 2758
    - ⚠️ VNRVJIET does NOT use agents/consultants for NRI/Category-B admissions
@@ -43,7 +44,9 @@ M.Tech / MCA Branch Code (TGPGECET/TGICET): **VJEC1**
 
 Admission Quotas (M.Tech / MCA):
 1. **Convenor / Category-A** – 70% of seats (TGPGECET / GATE for M.Tech; TGICET for MCA)
-2. **Management – Category-B / NRI / NRI Sponsored** – 30% of seats
+2. **Management** – 30% of seats
+   - Category-B
+   - NRI
 
 (Note: Supernumerary quota is NOT applicable for M.Tech / MCA admissions.)
 
@@ -76,7 +79,7 @@ Fee Structure (Approximate for 2025-26)
 - Convenor Quota (B.Tech): ₹1,35,000 per annum (tuition fee as per Telangana government norms)
 - M.Tech Fee: ₹1,30,000 per annum (applicable for academic year 2025)
 - MCA Fee: ₹27,000 per annum (applicable for academic year 2025)
-- Management Quota (B.Tech): ₹2,00,000 to ₹3,50,000 per annum (varies by branch)
+- Management → NRI (B.Tech): $3000-$5000 per annum (varies by branch and rupee exchange rates)
 - Hostel Fee: ₹1,35,000 per annum (including mess and laundry)
 - Note: Fee reimbursement available for eligible students under Telangana government schemes
 - ⚠️ Any fee paid is non-refundable.
@@ -132,9 +135,9 @@ B.Tech. Programmes & Tuition Fee (Per Annum)-NRI Quota
 17. Electronics and Instrumentation Engineering (UG-EIE) – $3000 per annum
 
 Fee Conversion Reference:(may vary as academic year changes and for each branch also)
-$5000 × 86 = Rs. 4,30,000 per annum
-$3500 × 86 = Rs. 3,01,000 per annum
-$3000 × 86 = Rs. 2,58,000 per annum
+$5000 × (current exchange rate) per annum
+$3500 × (current exchange rate ) per annum
+$3000 × (current exchange rate) per annum
 
 Placement Highlights
 --------------------
@@ -159,7 +162,6 @@ Stay connected with VNRVJIET through our official social media channels:
 - 🌐 Official Website: https://vnrvjiet.ac.in
 - 📘 Facebook: https://www.facebook.com/vnrvjiet
 - 📸 Instagram: https://www.instagram.com/vnrvjiet
-- 🎥 YouTube Channel: https://www.youtube.com/@vnrvjiet
 - 💼 LinkedIn: https://www.linkedin.com/school/vnrvjiet
 
 Follow us for latest updates on admissions, events, placements, campus life, and important announcements.
@@ -176,7 +178,7 @@ Q: Is hostel mandatory?
 A: No, hostel is optional. Outstation students are encouraged to opt for hostel.
 
 Q: Does VNRVJIET accept JEE Main scores?
-A: Yes, for Management Quota admissions, JEE Main scores are accepted.
+A: Yes, for Management admissions (Category-B / NRI), JEE Main scores are accepted.
 
 Q: What is the nearest metro station?
 A: JNTU Metro Station on the Green Line is approximately 5 km from the campus.

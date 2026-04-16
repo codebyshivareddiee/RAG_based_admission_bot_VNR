@@ -43,6 +43,19 @@ except Exception as e:
     traceback.print_exc()
     raise
 
+logger.info("cutoff_engine.py: importing language utilities...")
+try:
+    from app.utils.languages import (
+        get_cutoff_label,
+        format_gender_value,
+        format_quota_value,
+    )
+    logger.info("cutoff_engine.py: language utilities OK")
+except Exception as e:
+    logger.error(f"cutoff_engine.py: FAILED language utilities: {e}")
+    traceback.print_exc()
+    raise
+
 
 @dataclass
 class CutoffResult:
@@ -271,6 +284,7 @@ def get_cutoff(
     quota: str = "Convenor",
     ph_type: str | None = None,
     show_trend: bool = False,
+    language: str = "en",
 ) -> CutoffResult:
     """
     Look up exact cutoff from Firestore.
@@ -396,24 +410,38 @@ def get_cutoff(
     rows.sort(key=lambda r: (r.get("year", 0), r.get("round", 0)), reverse=True)
 
     if not rows:
+        data_not_found_msg = get_cutoff_label("data_not_found", language)
+        branch_label = get_cutoff_label("branch", language)
+        category_label = get_cutoff_label("category", language)
+        year_label = get_cutoff_label("year", language)
+        round_label = get_cutoff_label("round", language)
+        gender_label = get_cutoff_label("gender", language)
+        quota_label = get_cutoff_label("quota", language)
+        
+        quota_translated = format_quota_value(quota, language)
+        
+        message = (
+            f"{data_not_found_msg}: "
+            f"**{branch}** / **{category}**"
+            + (f" / **{year}**" if year else "")
+            + (f" / {round_label} {round_num}" if round_num else "")
+            + (f" / **{format_gender_value(gender, language)}**" if _gender_specific else "")
+            + f" / {quota_translated} {quota_label.lower()}."
+        )
+        
         return CutoffResult(
             found=False,
             branch=branch,
             category=category,
             year=year,
             round=round_num,
-            message=(
-                f"Data not found in Firestore for the specified filters: "
-                f"**{branch}** / **{category}**"
-                + (f" / **{year}**" if year else "")
-                + (f" / Round {round_num}" if round_num else "")
-                + (f" / **{gender}**" if _gender_specific else "")
-                + f" / {quota} quota."
-            ),
+            message=message,
         )
 
     dept_url = _get_department_url(branch)
-    dept_link = f"\n\nExplore {branch} Department: {dept_url}" if dept_url else ""
+    explore_label = get_cutoff_label("explore_department", language)
+    dept_label = get_cutoff_label("department", language)
+    dept_link = f"\n\n{explore_label} {branch} {dept_label}: {dept_url}" if dept_url else ""
 
     # ── Trend mode: show ALL available years with trend analysis ──
     if not year and show_trend and len(set(r.get("year") for r in rows)) > 1:
@@ -426,6 +454,11 @@ def get_cutoff(
 
         year_lines: list[str] = []
         ranks_list: list[int] = []
+        
+        first_rank_label = get_cutoff_label("first_rank_opening", language)
+        last_rank_label = get_cutoff_label("last_rank_closing", language)
+        no_allotments_label = get_cutoff_label("no_allotments", language)
+        
         for y in sorted_years:
             r = years_seen[y]
             cr = r.get("cutoff_rank")
@@ -433,42 +466,51 @@ def get_cutoff(
             fr = r.get("first_rank")   # None when not stored in Firestore
 
             if lr is None:
-                year_lines.append(f"• **{y}**: No allotments recorded (N/A)")
+                year_lines.append(f"• **{y}**: {no_allotments_label} (N/A)")
             elif fr is not None and fr != lr:
-                year_lines.append(f"• **{y}**: First Rank **{fr:,}** | Last Rank (Cutoff) **{lr:,}**")
+                year_lines.append(f"• **{y}**: {first_rank_label} **{fr:,}** | {last_rank_label} **{lr:,}**")
             else:
-                year_lines.append(f"• **{y}**: Last Rank (Cutoff) **{lr:,}**")
+                year_lines.append(f"• **{y}**: {last_rank_label} **{lr:,}**")
             if cr is not None:
                 ranks_list.append(cr)
 
         trend_analysis = ""
         valid_ranks = [v for v in ranks_list if v > 0]
+        trend_label = get_cutoff_label("trend_analysis", language)
+        
         if len(valid_ranks) >= 2:
             pct_change = ((valid_ranks[-1] - valid_ranks[0]) / valid_ranks[0] * 100) if valid_ranks[0] > 0 else 0
+            # Note: Trend analysis text is kept in English for now - can be enhanced later with full translations
             if abs(pct_change) < 5:
                 trend_analysis = (
-                    f"\n\n📊 **Trend Analysis:** The cutoff has remained relatively stable "
+                    f"\n\n📊 **{trend_label}:** The cutoff has remained relatively stable "
                     f"(~{abs(pct_change):.1f}% change). This branch maintains consistent demand."
                 )
             elif pct_change < 0:
                 trend_analysis = (
-                    f"\n\n📊 **Trend Analysis:** Closing rank decreased by **{abs(pct_change):.1f}%** "
+                    f"\n\n📊 **{trend_label}:** Closing rank decreased by **{abs(pct_change):.1f}%** "
                     f"({sorted_years[0]}→{sorted_years[-1]}) — rising competition."
                 )
             else:
                 trend_analysis = (
-                    f"\n\n📊 **Trend Analysis:** Closing rank increased by **{pct_change:.1f}%** "
+                    f"\n\n📊 **{trend_label}:** Closing rank increased by **{pct_change:.1f}%** "
                     f"({sorted_years[0]}→{sorted_years[-1]}) — improving admission chances."
                 )
 
+        cutoff_ranks_label = get_cutoff_label("cutoff_ranks", language)
+        quota_translated = format_quota_value(quota, language)
+        quota_label = get_cutoff_label("quota", language).lower()
+        across_years_label = get_cutoff_label("across_all_years", language)
+        warning_label = get_cutoff_label("warning_previous_year", language)
+        
         message = (
-            f"Cutoff ranks for **{branch}** | **{category}** | {quota} quota"
-            + (f" | {gender}" if _gender_specific else "")
-            + " across all available years:\n\n"
+            f"{cutoff_ranks_label} **{branch}** | **{category}** | {quota_translated} {quota_label}"
+            + (f" | {format_gender_value(gender, language)}" if _gender_specific else "")
+            + f" {across_years_label}:\n\n"
             + "\n".join(year_lines)
             + trend_analysis
             + dept_link
-            + "\n\nWARNING: Based on previous year data. Cutoffs may vary."
+            + f"\n\n{warning_label}"
         )
 
         best = rows[0]
@@ -509,6 +551,15 @@ def get_cutoff(
         display_rows = rows  # fallback: show whatever we have
 
     blocks: list[str] = []
+    
+    # Get translated labels for standard mode
+    branch_label = get_cutoff_label("branch", language)
+    category_label = get_cutoff_label("category", language)
+    gender_label = get_cutoff_label("gender", language)
+    quota_label = get_cutoff_label("quota", language)
+    round_label = get_cutoff_label("round", language)
+    first_rank_label = get_cutoff_label("first_rank_opening", language)
+    last_rank_label = get_cutoff_label("last_rank_closing", language)
 
     for r in display_rows:
         if _gender_specific and r.get("gender") != gender:
@@ -519,21 +570,26 @@ def get_cutoff(
 
         fr_str = f"{fr:,}" if fr is not None else "N/A"
         lr_str = f"{lr:,}" if lr is not None else "N/A"
+        
+        gender_value = format_gender_value(r.get('gender', '—'), language)
+        quota_value = format_quota_value(r.get('quota', quota), language)
 
         block = (
-            f"**Branch:** {r.get('branch', branch)}\n"
-            f"**Category:** {r.get('category', category)}\n"
-            f"**Gender:** {r.get('gender', '—')}\n"
-            f"**Quota:** {r.get('quota', quota)}\n"
-            f"**Round:** {r.get('round', '—')}\n"
-            f"**First Rank (Opening):** {fr_str}\n"
-            f"**Last Rank (Closing):** {lr_str}"
+            f"**{branch_label}:** {r.get('branch', branch)}\n"
+            f"**{category_label}:** {r.get('category', category)}\n"
+            f"**{gender_label}:** {gender_value}\n"
+            f"**{quota_label}:** {quota_value}\n"
+            f"**{round_label}:** {r.get('round', '—')}\n"
+            f"**{first_rank_label}:** {fr_str}\n"
+            f"**{last_rank_label}:** {lr_str}"
         )
         blocks.append(block)
 
     separator = "\n\n" + "─" * 36 + "\n\n"
-    header = f"**EAPCET Cutoff Ranks — {target_year}**\n\n"
-    message = header + separator.join(blocks) + dept_link + "\n\nWARNING: Based on previous year data. Cutoffs may vary."
+    eapcet_label = get_cutoff_label("eapcet_cutoff_ranks", language)
+    warning_label = get_cutoff_label("warning_previous_year", language)
+    header = f"**{eapcet_label} — {target_year}**\n\n"
+    message = header + separator.join(blocks) + dept_link + f"\n\n{warning_label}"
 
     best = display_rows[0]
     return CutoffResult(
