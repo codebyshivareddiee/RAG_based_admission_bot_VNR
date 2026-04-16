@@ -268,53 +268,132 @@
     });
   }
 
-  /** Minimal Markdown → HTML (headings, bold, italic, lists, line breaks, links) */
-  function renderMarkdown(text) {
-    // ── Step 1: wrap field lines (**Label:** value) in block divs LINE BY LINE
-    // Using split/map is more reliable than a /^$/gm regex (avoids CRLF edge cases).
-    text = text
-      .split("\n")
-      .map(function (line) {
-        // Match lines like **Branch:** CSE  or  **First Rank (Opening):** 1,714
-        // The colon sits INSIDE the closing **: **Label:**
-        if (/^\*\*[A-Za-z][^*]*:\*\*\s*.+/.test(line)) {
-          return '<div class="cutoff-field" style="display:block!important;margin:3px 0;clear:both;width:100%;">' + line + "</div>";
-        }
-        return line;
-      })
-      .join("\n");
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 
-    let html = text
-      // Headings: ### h3, ## h2, # h1
-      .replace(/^###\s+(.+)$/gm, "<strong style='font-size:1.05em;display:block;margin:8px 0 4px;'>$1</strong>")
-      .replace(/^##\s+(.+)$/gm, "<strong style='font-size:1.1em;display:block;margin:8px 0 4px;'>$1</strong>")
-      .replace(/^#\s+(.+)$/gm, "<strong style='font-size:1.15em;display:block;margin:8px 0 4px;'>$1</strong>")
-      // Bold **text**
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic *text*
-      .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
-      // Inline code `text`
+  function renderInlineMarkdown(text) {
+    return escapeHtml(text)
+      // Inline code first so later replacements do not affect it.
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       // Markdown links: [text](url)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0066cc;text-decoration:underline;">$1</a>')
-      // Auto-detect plain URLs (http:// or https://)
-      .replace(/(^|[^"'\(>])((https?:\/\/)[^\s<]+[^\s<.,;!?'"\)])/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0066cc;text-decoration:underline;">$2</a>')
-      // Unordered list items
-      .replace(/^[\s]*[-•]\s+(.+)$/gm, "<li>$1</li>")
-      // Ordered list items
-      .replace(/^[\s]*\d+\.\s+(.+)$/gm, "<li>$1</li>")
-      // Line breaks
-      .replace(/\n/g, "<br>")
-      // Remove redundant <br> immediately after block divs (prevents double spacing)
-      .replace(/<\/div><br>/g, "</div>");
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+      // Auto-detect plain URLs
+      .replace(/(^|\s)(https?:\/\/[^\s<]+[^\s<.,;!?"')\]])/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
+      // Bold **text**
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      // Italic *text*
+      .replace(/(^|[^*])\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, "$1<em>$2</em>");
+  }
 
-    // Wrap consecutive <li> in <ul>
-    html = html.replace(
-      /(<li>.*?<\/li>(?:<br>)?)+/g,
-      (match) => "<ul>" + match.replace(/<br>/g, "") + "</ul>"
-    );
+  function normalizeBotText(text) {
+    if (!text) return "";
 
-    return html;
+    let normalized = String(text).replace(/\r\n?/g, "\n").trim();
+
+    // Keep existing structured markdown untouched.
+    if (/[\n]/.test(normalized) || /(^|\n)\s*([#>*-])\s+/.test(normalized)) {
+      return normalized;
+    }
+
+    // Convert inline numbered points (1. / 1)) into line-separated items.
+    normalized = normalized.replace(/\s+(?=\d+[.)]\s+)/g, "\n");
+
+    // Break common "Section: ... Section: ..." inline patterns into separate lines.
+    normalized = normalized.replace(/\s+(?=[A-Z][A-Za-z0-9&/()\- ]{2,30}:\s)/g, "\n");
+
+    // Add paragraph spacing between sentence groups for long plain-text replies.
+    if (!/\n/.test(normalized) && normalized.length > 240) {
+      normalized = normalized.replace(/([.!?])\s+(?=[A-Z0-9])/g, "$1\n\n");
+    }
+
+    return normalized;
+  }
+
+  /** Lightweight Markdown -> HTML block renderer (headings, paragraphs, lists, links). */
+  function renderMarkdown(text) {
+    if (!text) return "";
+
+    const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+    const blocks = [];
+    let listType = null;
+
+    function closeList() {
+      if (listType) {
+        blocks.push(`</${listType}>`);
+        listType = null;
+      }
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+
+      if (!line) {
+        closeList();
+        continue;
+      }
+
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        closeList();
+        const level = Math.min(headingMatch[1].length, 6);
+        blocks.push(`<h${level} class="md-heading md-h${level}">${renderInlineMarkdown(headingMatch[2])}</h${level}>`);
+        continue;
+      }
+
+      const orderedMatch = line.match(/^\d+[.)]\s+(.+)$/);
+      if (orderedMatch) {
+        if (listType !== "ol") {
+          closeList();
+          listType = "ol";
+          blocks.push("<ol>");
+        }
+        blocks.push(`<li>${renderInlineMarkdown(orderedMatch[1])}</li>`);
+        continue;
+      }
+
+      const unorderedMatch = line.match(/^[-*•]\s+(.+)$/);
+      if (unorderedMatch) {
+        if (listType !== "ul") {
+          closeList();
+          listType = "ul";
+          blocks.push("<ul>");
+        }
+        blocks.push(`<li>${renderInlineMarkdown(unorderedMatch[1])}</li>`);
+        continue;
+      }
+
+      closeList();
+
+      if (/^\*\*[^*]+:\*\*\s+.+/.test(line)) {
+        blocks.push(`<p class="cutoff-field">${renderInlineMarkdown(line)}</p>`);
+      } else {
+        blocks.push(`<p>${renderInlineMarkdown(line)}</p>`);
+      }
+    }
+
+    closeList();
+    return blocks.join("");
+  }
+
+  function renderBotBubbleContent(contentEl, text) {
+    if (!contentEl) return;
+    const normalizedText = normalizeBotText(text);
+    contentEl.dataset.rawText = normalizedText;
+    contentEl.innerHTML = renderMarkdown(normalizedText);
+  }
+
+  function refreshExistingBotFormatting() {
+    const botContents = messagesEl.querySelectorAll(".message.bot .bubble-content");
+    botContents.forEach((el) => {
+      const sourceText = el.dataset.rawText || el.textContent || "";
+      renderBotBubbleContent(el, sourceText);
+    });
   }
 
   // ── UI Functions ─────────────────────────────────────────────
@@ -1481,7 +1560,10 @@
     bubble.className = "bubble";
 
     if (sender === "bot") {
-      bubble.innerHTML = renderMarkdown(text);
+      const content = document.createElement("div");
+      content.className = "bubble-content";
+      renderBotBubbleContent(content, text);
+      bubble.appendChild(content);
       
       // Add TTS button for bot messages
       const ttsBtn = createTTSButton(text);
@@ -1751,11 +1833,11 @@
       bubble.className = "bubble";
       
       const content = document.createElement("div");
-      content.className = "content streaming"; // Add streaming class for cursor effect
+      content.className = "bubble-content streaming"; // Add streaming class for cursor effect
       content.innerHTML = ""; // Will be filled with streamed tokens
       
-      const timeDiv = document.createElement("div");
-      timeDiv.className = "time";
+      const timeDiv = document.createElement("span");
+      timeDiv.className = "timestamp";
       timeDiv.textContent = timestamp();
       
       bubble.appendChild(content);
@@ -1790,7 +1872,7 @@
               const data = JSON.parse(line.slice(6));
               
               if (data.error) {
-                content.innerHTML = renderMarkdown(`❌ ${data.error}`);
+                renderBotBubbleContent(content, `❌ ${data.error}`);
                 content.classList.remove("streaming");
                 hasError = true;
                 break;
@@ -1799,7 +1881,7 @@
               if (!data.done && data.token) {
                 // Append token to display
                 fullReply += data.token;
-                content.innerHTML = renderMarkdown(fullReply);
+                renderBotBubbleContent(content, fullReply);
                 
                 // Auto-scroll until user's question reaches viewport top
                 if (shouldAutoScroll) {
@@ -1822,6 +1904,11 @@
               if (data.done) {
                 // Stream complete - save metadata and remove streaming cursor
                 content.classList.remove("streaming");
+
+                if (fullReply) {
+                  const ttsBtn = createTTSButton(fullReply);
+                  bubble.appendChild(ttsBtn);
+                }
                 
                 if (data.session_id) {
                   sessionId = data.session_id;
@@ -1962,6 +2049,9 @@
   // ── Initialize Speech Recognition ────────────────────────────
   // Initialize STT when page loads (will check browser support)
   initSpeechRecognition();
+
+  // Apply formatter to any existing bot bubbles already in DOM.
+  refreshExistingBotFormatting();
   
   // Initialize microphone with simple icon (no state changes)
   if (micBtn) {

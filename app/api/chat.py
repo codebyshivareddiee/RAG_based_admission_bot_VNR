@@ -369,12 +369,14 @@ async def chat_stream_endpoint(request: ChatRequest):
         async def generate_stream():
             """Generate streaming response in SSE format."""
             
-            # Split response into tokens (words) for streaming effect
-            words = response.response.split()
-            
-            for i, word in enumerate(words):
-                # Send each word as a streaming token
-                yield f"data: {json.dumps({'token': word + ' ', 'done': False})}\n\n"
+            # Preserve exact spaces/newlines so frontend formatting stays intact.
+            tokens = re.findall(r"\S+\s*|\s+", response.response)
+
+            for token in tokens:
+                if not token:
+                    continue
+                # Send each token as-is (including original whitespace/newlines)
+                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
                 # Small delay for typing effect
                 await asyncio.sleep(0.05)
             
@@ -389,7 +391,7 @@ async def chat_stream_endpoint(request: ChatRequest):
             
         return StreamingResponse(
             generate_stream(),
-            media_type="text/plain",
+            media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
@@ -410,5 +412,5 @@ async def chat_stream_endpoint(request: ChatRequest):
             
         return StreamingResponse(
             error_stream(),
-            media_type="text/plain"
+            media_type="text/event-stream"
         )

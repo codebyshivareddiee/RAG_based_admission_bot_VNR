@@ -390,11 +390,14 @@ html, body {
 
 .message .bubble {
   max-width: 80%;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 14px;
   font-size: 13.5px;
   line-height: 1.5;
+  text-align: left;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   position: relative;
 }
 
@@ -428,45 +431,27 @@ html, body {
   text-decoration: underline;
 }
 
-/* Ensure block divs inside bot bubbles always display as block */
-.message.bot .bubble div[style] {
-  display: block !important;
-}
-
-/* Enhanced formatting for cutoff data fields */
-.message.bot .bubble div[style*="display:block"] {
-  display: block !important;
-  margin: 3px 0 !important;
-  clear: both;
-  width: 100%;
+.message .bubble .bubble-content {
+  display: block;
+  max-width: 100%;
+  text-align: left;
 }
 
 /* Specific styling for cutoff fields */
 .message.bot .bubble .cutoff-field {
-  display: block !important;
-  margin: 4px 0 !important;
+  display: block;
+  margin: 4px 0;
   padding: 2px 0;
-  clear: both;
-  width: 100%;
   line-height: 1.4;
 }
 
 /* Ensure cutoff field labels are properly formatted */
-.message.bot .bubble div[style*="display:block"] strong,
 .message.bot .bubble .cutoff-field strong {
   display: inline-block;
   min-width: 140px;
   color: var(--primary);
   font-weight: 600;
   margin-right: 8px;
-}
-
-/* Force line breaks after cutoff field containers */
-.message.bot .bubble div[style*="display:block"]:after,
-.message.bot .bubble .cutoff-field:after {
-  content: "";
-  display: block;
-  clear: both;
 }
 
 .message.bot .bubble {
@@ -824,11 +809,62 @@ html, body {
 
 /* ── Markdown inside bubbles ────────────────────────────────── */
 
-.bubble p { margin: 0 0 8px; }
-.bubble p:last-child { margin-bottom: 0; }
-.bubble ul, .bubble ol { margin: 4px 0 8px 18px; }
-.bubble li { margin-bottom: 3px; }
-.bubble strong { font-weight: 600; }
+.bubble .bubble-content > *:first-child {
+  margin-top: 0;
+}
+
+.bubble .bubble-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.bubble .bubble-content p {
+  margin: 0 0 10px;
+}
+
+.bubble .bubble-content ul,
+.bubble .bubble-content ol {
+  margin: 4px 0 10px;
+  padding-left: 20px;
+}
+
+.bubble .bubble-content li {
+  margin-bottom: 4px;
+}
+
+.bubble .bubble-content .md-heading {
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 10px 0 8px;
+  color: var(--text-primary);
+}
+
+.bubble .bubble-content .md-h1 {
+  font-size: 1.08rem;
+}
+
+.bubble .bubble-content .md-h2 {
+  font-size: 1rem;
+}
+
+.bubble .bubble-content .md-h3,
+.bubble .bubble-content .md-h4,
+.bubble .bubble-content .md-h5,
+.bubble .bubble-content .md-h6 {
+  font-size: 0.95rem;
+}
+
+.bubble .bubble-content strong {
+  font-weight: 600;
+}
+
+.bubble .bubble-content em {
+  font-style: italic;
+}
+
+.bubble .bubble-content a {
+  overflow-wrap: anywhere;
+}
+
 .bubble code {
   background: rgba(0,0,0,0.06);
   padding: 1px 5px;
@@ -862,6 +898,11 @@ html, body {
 
   .welcome-popup .popup-arrow {
     right: 24px;
+  }
+
+  .message .bubble {
+    max-width: 88%;
+    padding: 11px 13px;
   }
 }
 
@@ -1086,7 +1127,7 @@ html, body {
 /* ── Streaming Text Effect ──────────────────────────────────── */
 
 /* Add subtle typing cursor effect while streaming */
-.message.bot .content.streaming::after {
+.message.bot .bubble-content.streaming::after {
   content: '▋';
   animation: blink 1s step-end infinite;
   margin-left: 2px;
@@ -1104,7 +1145,7 @@ html, body {
 }
 
 /* Smooth text appearance during streaming */
-.message.bot .content {
+.message.bot .bubble-content {
   animation: fadeIn 0.2s ease-in;
 }
 
