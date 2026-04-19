@@ -17,7 +17,13 @@ import json
 import asyncio
 
 from app.classifier.intent_classifier import classify, ClassificationResult, IntentType
-from app.logic.cutoff_engine import get_cutoff
+from app.logic.cutoff_engine import (
+    get_cutoff,
+    get_available_branches,
+    get_available_categories,
+    get_available_genders,
+    get_available_years,
+)
 from app.rag.retriever import retrieve
 from openai import AsyncOpenAI
 from app.config import get_settings
@@ -358,6 +364,20 @@ _DOCUMENT_CATEGORY_DETAILS = {
 }
 
 _DOCUMENT_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
+_CUTOFF_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
+
+_GUIDED_BRANCH_LABELS_BY_CODE = {
+    "CSE": "CSE",
+    "ECE": "ECE",
+    "EEE": "EEE",
+    "IT": "IT",
+    "ME": "MECH",
+    "CIV": "CIVIL",
+    "CSE-CSM": "CSE (AI & ML)",
+    "CSE-CSD": "CSE (Data Science)",
+}
+
+_GUIDED_GENDER_OPTIONS = ("Boys", "Girls", "Any")
 
 
 def _normalize_language_code(language: Optional[str]) -> str:
@@ -820,6 +840,230 @@ async def _handle_required_documents_flow(
     )
 
 
+def _is_cutoff_like_query(message: str) -> bool:
+    """Return True when user likely wants branch-wise cutoff flow."""
+    lowered = message.lower().strip()
+    cutoff_keywords = (
+        "cutoff",
+        "cut off",
+        "closing rank",
+        "opening rank",
+        "last rank",
+        "branch-wise cutoff",
+        "branch wise cutoff",
+        "eapcet",
+        "eamcet",
+    )
+    return any(keyword in lowered for keyword in cutoff_keywords)
+
+
+def _build_branch_options() -> list[dict]:
+    """Build branch options, preferring required guided branches when available."""
+    available = set(get_available_branches(quota="Convenor"))
+    options: list[dict] = []
+    for code, label in _GUIDED_BRANCH_LABELS_BY_CODE.items():
+        if code in available:
+            options.append({"label": label, "value": code})
+
+    if options:
+        return options
+
+    return [{"label": label, "value": code} for code, label in _GUIDED_BRANCH_LABELS_BY_CODE.items()]
+
+
+def _build_category_options(branch: str) -> list[dict]:
+    categories = get_available_categories(branch=branch, quota="Convenor")
+    if not categories:
+        categories = ["OC", "BC-A", "BC-B", "BC-C", "BC-D", "BC-E", "SC", "ST", "EWS"]
+    return [{"label": category, "value": category} for category in categories]
+
+
+def _build_gender_options(branch: str, category: str) -> list[dict]:
+    available = set(get_available_genders(branch=branch, category=category, quota="Convenor"))
+    options: list[dict] = []
+    for gender in _GUIDED_GENDER_OPTIONS:
+        if gender in available:
+            options.append({"label": gender, "value": gender})
+
+    if options:
+        return options
+
+    return [{"label": gender, "value": gender} for gender in _GUIDED_GENDER_OPTIONS]
+
+
+def _build_year_options(branch: str, category: str, gender: str) -> list[dict]:
+    years = get_available_years(branch=branch, category=category, gender=gender, quota="Convenor")
+    return [{"label": str(year), "value": str(year)} for year in years]
+
+
+def _build_guided_prompt(prompt: str, options: list[dict], intent: str = "cutoff", metadata: Optional[dict] = None) -> ChatResponse:
+    numbered = "\n".join(f"{idx}. {opt['label']}" for idx, opt in enumerate(options, start=1))
+    message = f"{prompt}\n\n{numbered}" if options else prompt
+    return ChatResponse(
+        response=message,
+        intent=intent,
+        metadata=metadata or {},
+        options=options,
+    )
+
+
+def _guided_cutoff_next_step(state: dict[str, str]) -> str:
+    """Determine next missing step in branch -> category -> gender -> year order."""
+    if not state.get("branch"):
+        return "branch"
+    if not state.get("category"):
+        return "category"
+    if not state.get("gender"):
+        return "gender"
+    if not state.get("year"):
+        return "year"
+    return "done"
+
+
+def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatResponse:
+    """Build the next guided-flow response based on missing step."""
+    _ = language
+    step = _guided_cutoff_next_step(state)
+
+    if step == "branch":
+        options = _build_branch_options()
+        return _build_guided_prompt(
+            "Please select a branch:",
+            options,
+            metadata={"awaiting_cutoff_step": "branch"},
+        )
+
+    if step == "category":
+        options = _build_category_options(state["branch"])
+        return _build_guided_prompt(
+            "Please select your category/caste:",
+            options,
+            metadata={"awaiting_cutoff_step": "category", "branch": state["branch"]},
+        )
+
+    if step == "gender":
+        options = _build_gender_options(state["branch"], state["category"])
+        return _build_guided_prompt(
+            "Please select gender:",
+            options,
+            metadata={
+                "awaiting_cutoff_step": "gender",
+                "branch": state["branch"],
+                "category": state["category"],
+            },
+        )
+
+    if step == "year":
+        options = _build_year_options(state["branch"], state["category"], state["gender"])
+        if not options:
+            alt_gender_options = _build_gender_options(state["branch"], state["category"])
+            return _build_guided_prompt(
+                "No cutoff data found for this combination. Please choose a different gender option:",
+                alt_gender_options,
+                metadata={
+                    "awaiting_cutoff_step": "gender",
+                    "branch": state["branch"],
+                    "category": state["category"],
+                },
+            )
+        return _build_guided_prompt(
+            "Please select year:",
+            options,
+            metadata={
+                "awaiting_cutoff_step": "year",
+                "branch": state["branch"],
+                "category": state["category"],
+                "gender": state["gender"],
+            },
+        )
+
+    return ChatResponse(response="Please continue.", intent="cutoff")
+
+
+async def _handle_guided_cutoff_flow(
+    user_message: str,
+    session_id: str,
+    language: str,
+) -> Optional[ChatResponse]:
+    """Guided cutoff flow: branch -> category -> gender -> year -> final response."""
+    state = _CUTOFF_FLOW_STATE_BY_SESSION.get(session_id)
+
+    if state is None:
+        if not _is_cutoff_like_query(user_message):
+            return None
+        state = {}
+
+    detected_branch = extract_branch(user_message)
+    detected_category = extract_category(user_message)
+    detected_gender = extract_gender(user_message)
+    detected_year = extract_year(user_message)
+
+    if detected_branch:
+        state["branch"] = detected_branch
+    if detected_category and detected_category != "ALL":
+        state["category"] = detected_category
+    if detected_gender == "ALL":
+        state["gender"] = "Any"
+    elif detected_gender in {"Boys", "Girls"}:
+        state["gender"] = detected_gender
+    if detected_year:
+        state["year"] = str(detected_year)
+
+    if _guided_cutoff_next_step(state) != "done":
+        _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
+        return _build_cutoff_step_response(language, state)
+
+    branch = state["branch"]
+    category = state["category"]
+    gender = state["gender"]
+    year = int(state["year"])
+    _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+
+    try:
+        result = get_cutoff(
+            branch=branch,
+            category=category,
+            year=year,
+            gender=gender,
+            quota="Convenor",
+            language=language,
+        )
+        has_data = bool(result.found) or bool(result.all_results) or (result.cutoff_rank is not None)
+        if has_data:
+            return ChatResponse(
+                response=result.message,
+                intent="cutoff",
+                metadata={
+                    "branch": branch,
+                    "category": category,
+                    "gender": gender,
+                    "year": year,
+                    "found": True,
+                    "guided_flow": True,
+                },
+            )
+
+        alt_year_options = _build_year_options(branch, category, gender)
+        return _build_guided_prompt(
+            "No cutoff data found for that selection. Please pick one of the available years:",
+            alt_year_options,
+            metadata={
+                "awaiting_cutoff_step": "year",
+                "branch": branch,
+                "category": category,
+                "gender": gender,
+                "guided_flow": True,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Guided cutoff flow failed: {e}")
+        return ChatResponse(
+            response=_get_localized_text(_CUTOFF_ENGINE_ERROR_RESPONSES, language),
+            intent="cutoff",
+            metadata={"error": str(e), "guided_flow": True},
+        )
+
+
 def _clean_list_item(item: str) -> str:
     """Normalize whitespace and punctuation around a list item."""
     compact = re.sub(r"\s+", " ", item).strip()
@@ -969,6 +1213,14 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         )
         if document_flow_response is not None:
             return _finalize_chat_response(document_flow_response, user_message)
+
+        cutoff_flow_response = await _handle_guided_cutoff_flow(
+            user_message=user_message,
+            session_id=session_id,
+            language=effective_language,
+        )
+        if cutoff_flow_response is not None:
+            return _finalize_chat_response(cutoff_flow_response, user_message)
         
         # Classify the user's intent
         intent_result = classify(user_message)
