@@ -364,6 +364,56 @@ _DOCUMENT_CATEGORY_DETAILS = {
 _DOCUMENT_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
 _CUTOFF_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
 
+_GUIDED_BACK_OPTION_VALUE = "__guided_previous_option__"
+_GUIDED_BACK_OPTION_LABEL = "Change Previous Option (Back)"
+
+
+def _reset_guided_session_state(session_id: str) -> None:
+    """Clear all per-session guided flow memory."""
+    _DOCUMENT_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    _SESSION_LANGUAGE_BY_ID.pop(session_id, None)
+
+
+def _with_guided_back_option(options: list[dict]) -> list[dict]:
+    """Append the in-flow back action as a single navigation button."""
+    return [*options, {"label": _GUIDED_BACK_OPTION_LABEL, "value": _GUIDED_BACK_OPTION_VALUE}]
+
+
+def _is_guided_back_option_message(user_message: str) -> bool:
+    selected = _resolve_selected_option(
+        user_message,
+        [{"label": _GUIDED_BACK_OPTION_LABEL, "value": _GUIDED_BACK_OPTION_VALUE}],
+    )
+    return selected == _GUIDED_BACK_OPTION_VALUE
+
+
+def _apply_guided_back_action(state: dict[str, str], current_step: str) -> None:
+    """Move one step back in the guided cutoff flow."""
+    if current_step == "result":
+        state.pop("step", None)
+        state.pop("gender", None)
+        return
+
+    if current_step == "year":
+        state.clear()
+        return
+
+    if current_step == "gender":
+        state.pop("step", None)
+        state.pop("category", None)
+        state.pop("gender", None)
+        return
+
+    if current_step == "category":
+        state.pop("step", None)
+        state.pop("year", None)
+        state.pop("category", None)
+        state.pop("gender", None)
+        return
+
+    state.pop("step", None)
+
 # Guided branch display map: canonical value -> user-facing label.
 # Values are used internally for cutoff lookup; labels are shown on buttons.
 _GUIDED_BRANCH_DISPLAY_BY_CANONICAL = {
@@ -1088,13 +1138,14 @@ def _row_has_valid_cutoff_data(row: dict) -> bool:
     return first_rank is not None and first_rank > 0
 
 
-def _build_gender_options(branch: str, category: str) -> list[dict]:
+def _build_gender_options(branch: str, year: int, category: str) -> list[dict]:
     raw_genders = {
         str(row.get("gender") or "").strip()
         for lookup_category in _get_lookup_categories_for_guided(category)
         for row in get_cutoffs_flexible(
             branch=branch,
             category=lookup_category,
+            year=year,
             quota="Convenor",
             limit=0,
         )
@@ -1216,13 +1267,14 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
         )
 
     if step == "year":
-        options = _build_year_options(state["branch"])
-        if not options:
+        year_options = _build_year_options(state["branch"])
+        if not year_options:
             return _build_guided_prompt(
                 "No years available for this branch.",
                 _build_branch_options(),
                 metadata={"awaiting_cutoff_step": "branch"},
             )
+        options = _with_guided_back_option(year_options)
         return _build_guided_prompt(
             "Please select year:",
             options,
@@ -1234,8 +1286,8 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
 
     if step == "category":
         year = int(state["year"]) if state.get("year") else None
-        options = _build_category_options(state["branch"], year)
-        if not options:
+        category_options = _build_category_options(state["branch"], year)
+        if not category_options:
             alt_year_options = _build_year_options(state["branch"])
             return _build_guided_prompt(
                 "No categories available for this branch and year. Please select a different year:",
@@ -1245,6 +1297,7 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
                     "branch": state["branch"],
                 },
             )
+        options = _with_guided_back_option(category_options)
         return _build_guided_prompt(
             "Please select your category/caste:",
             options,
@@ -1256,8 +1309,8 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
         )
 
     if step == "gender":
-        options = _build_gender_options(state["branch"], state["category"])
-        if not options:
+        gender_options = _build_gender_options(state["branch"], int(state["year"]), state["category"])
+        if not gender_options:
             year = int(state["year"]) if state.get("year") else None
             alt_category_options = _build_category_options(state["branch"], year)
             return _build_guided_prompt(
@@ -1269,6 +1322,7 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
                     "year": state["year"],
                 },
             )
+        options = _with_guided_back_option(gender_options)
         return _build_guided_prompt(
             "Please select gender:",
             options,
@@ -1295,8 +1349,30 @@ async def _handle_guided_cutoff_flow(
         if not _is_cutoff_like_query(user_message):
             return None
         state = {}
+    elif state.get("step") == "result":
+        if _is_guided_back_option_message(user_message):
+            _apply_guided_back_action(state, "result")
+            _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
+            return _build_cutoff_step_response(language, state)
+
+        if not _is_cutoff_like_query(user_message):
+            _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+            return None
+
+        # New cutoff query after result starts a fresh guided attempt.
+        state = {}
 
     current_step = _guided_cutoff_next_step(state)
+
+    if current_step in {"year", "category", "gender"}:
+        if _is_guided_back_option_message(user_message):
+            _apply_guided_back_action(state, current_step)
+            if _guided_cutoff_next_step(state) != "done":
+                _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
+                return _build_cutoff_step_response(language, state)
+            _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+            return _build_cutoff_step_response(language, state)
+
     if current_step == "branch":
         selected = _resolve_selected_option(user_message, _build_branch_options())
         if selected:
@@ -1311,7 +1387,7 @@ async def _handle_guided_cutoff_flow(
         if selected:
             state["category"] = selected
     elif current_step == "gender" and state.get("branch") and state.get("category"):
-        gender_options = _build_gender_options(state["branch"], state["category"])
+        gender_options = _build_gender_options(state["branch"], int(state["year"]), state["category"])
         selected = _resolve_selected_option(user_message, gender_options)
         if not selected:
             candidate = user_message.strip().lower()
@@ -1345,7 +1421,6 @@ async def _handle_guided_cutoff_flow(
     category = state["category"]
     gender = state["gender"]
     year = int(state["year"])
-    _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
 
     try:
         def _has_rank_data(candidate_result) -> bool:
@@ -1428,6 +1503,8 @@ async def _handle_guided_cutoff_flow(
             girls_result = _pick_best_result_for_gender("Girls")
 
             if _has_rank_data(boys_result) or _has_rank_data(girls_result):
+                state["step"] = "result"
+                _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
                 combined_message = (
                     f"**EAPCET Cutoff Ranks — {year}**\n\n"
                     f"{_build_rank_block('Boys', boys_result)}\n\n"
@@ -1438,6 +1515,7 @@ async def _handle_guided_cutoff_flow(
                 return ChatResponse(
                     response=combined_message,
                     intent="cutoff",
+                    options=[{"label": _GUIDED_BACK_OPTION_LABEL, "value": _GUIDED_BACK_OPTION_VALUE}],
                     metadata={
                         "branch": branch,
                         "category": category,
@@ -1449,6 +1527,9 @@ async def _handle_guided_cutoff_flow(
                 )
 
             alt_year_options = _build_year_options(branch, category, gender)
+            state.pop("year", None)
+            state.pop("step", None)
+            _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
             return _build_guided_prompt(
                 "No cutoff data found for that selection. Please pick one of the available years:",
                 alt_year_options,
@@ -1476,9 +1557,12 @@ async def _handle_guided_cutoff_flow(
             )
             has_data = _has_rank_data(result)
         if has_data:
+            state["step"] = "result"
+            _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
             return ChatResponse(
                 response=result.message,
                 intent="cutoff",
+                options=[{"label": _GUIDED_BACK_OPTION_LABEL, "value": _GUIDED_BACK_OPTION_VALUE}],
                 metadata={
                     "branch": branch,
                     "category": category,
@@ -1490,6 +1574,9 @@ async def _handle_guided_cutoff_flow(
             )
 
         alt_year_options = _build_year_options(branch, category, gender)
+        state.pop("year", None)
+        state.pop("step", None)
+        _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state
         return _build_guided_prompt(
             "No cutoff data found for that selection. Please pick one of the available years:",
             alt_year_options,
@@ -1627,6 +1714,14 @@ def _finalize_chat_response(response: ChatResponse, user_message: str) -> ChatRe
     """Apply final output formatting guarantees before returning to the client."""
     response.response = _enforce_structured_list_formatting(response.response, user_message)
     return response
+
+
+@router.post("/chat/reset")
+async def reset_chat_session(request: ChatRequest):
+    """Clear guided flow state so Home returns to a fresh main menu."""
+    session_id = request.session_id or "default"
+    _reset_guided_session_state(session_id)
+    return {"ok": True}
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest) -> ChatResponse:
