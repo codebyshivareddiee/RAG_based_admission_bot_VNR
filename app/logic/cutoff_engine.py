@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 import sys
 import traceback
+from functools import lru_cache
+from time import perf_counter
 
 logger = logging.getLogger("app.logic.cutoff_engine")
 logger.info("cutoff_engine.py: starting imports...")
@@ -27,7 +29,7 @@ except Exception as e:
 
 logger.info("cutoff_engine.py: importing init_db...")
 try:
-    from app.data.init_db import get_db, COLLECTION
+    from app.data.init_db import get_db, COLLECTION, SEED_DATA
     logger.info("cutoff_engine.py: init_db OK")
 except Exception as e:
     logger.error(f"cutoff_engine.py: FAILED init_db: {e}")
@@ -304,81 +306,41 @@ def get_cutoff(
     branch = _normalise_branch(branch)
     category = _normalise_category(category)
 
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Cannot query cutoff data.")
-        return CutoffResult(
-            message="WARNING: Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for cutoff information.",
-            found=False,
-        )
-
-    query = db.collection(COLLECTION)
-
-    # Build Firestore query with compound filters
-    query = query.where(filter=FieldFilter("branch", "==", branch))
-    query = query.where(filter=FieldFilter("category", "==", category))
     # Only filter by gender when a specific gender is requested.
-    # "Any" / None means "show both Boys and Girls" — omitting the filter
-    # returns all matching rows so the caller can pick the best one.
+    # "Any" / None means "show both Boys and Girls".
     _gender_specific = gender and gender not in ("Any", "ALL")
-    if _gender_specific:
-        query = query.where(filter=FieldFilter("gender", "==", gender))
-    query = query.where(filter=FieldFilter("quota", "==", quota))
 
-    if ph_type:
-        query = query.where(filter=FieldFilter("ph_type", "==", ph_type))
+    rows = get_cutoffs_flexible(
+        branch=branch,
+        category=category,
+        gender=gender if _gender_specific else None,
+        year=year,
+        round_num=round_num,
+        quota=quota,
+        limit=5000,
+    )
 
-    if year:
-        query = query.where(filter=FieldFilter("year", "==", year))
-    if round_num:
-        query = query.where(filter=FieldFilter("round", "==", round_num))
-
-    docs = query.stream()
-    rows = [doc.to_dict() for doc in docs]
-    
-    logger.info(f"Firestore query returned {len(rows)} rows for branch={branch}, category={category}, gender={gender}, year={year}")
-    if rows:
-        logger.info(f"Sample row: {rows[0]}")
-
-    # If no results found for specific gender, try fallback to "Any" gender
+    # If no results found for specific gender, try fallback to "Any" gender.
     if not rows and _gender_specific and gender in ("Boys", "Girls"):
         logger.info(f"No results for {gender}, trying fallback to 'Any' gender")
-        fallback_query = db.collection(COLLECTION)
-        fallback_query = fallback_query.where(filter=FieldFilter("branch", "==", branch))
-        fallback_query = fallback_query.where(filter=FieldFilter("category", "==", category))
-        fallback_query = fallback_query.where(filter=FieldFilter("gender", "==", "Any"))
-        fallback_query = fallback_query.where(filter=FieldFilter("quota", "==", quota))
-        if ph_type:
-            fallback_query = fallback_query.where(filter=FieldFilter("ph_type", "==", ph_type))
-        if year:
-            fallback_query = fallback_query.where(filter=FieldFilter("year", "==", year))
-        if round_num:
-            fallback_query = fallback_query.where(filter=FieldFilter("round", "==", round_num))
-        
-        fallback_docs = fallback_query.stream()
-        fallback_rows = [doc.to_dict() for doc in fallback_docs]
-        if fallback_rows:
-            rows.extend(fallback_rows)
-            logger.info(f"Fallback query found {len(fallback_rows)} rows with 'Any' gender")
+        rows = get_cutoffs_flexible(
+            branch=branch,
+            category=category,
+            gender="Any",
+            year=year,
+            round_num=round_num,
+            quota=quota,
+            limit=5000,
+        )
 
-    # Also check with 'caste' field for older EWS records that use that name
-    if not rows or category == "EWS":
-        alt_query = db.collection(COLLECTION)
-        alt_query = alt_query.where(filter=FieldFilter("branch", "==", branch))
-        alt_query = alt_query.where(filter=FieldFilter("caste", "==", category))
-        if _gender_specific:
-            alt_query = alt_query.where(filter=FieldFilter("gender", "==", gender))
-        alt_query = alt_query.where(filter=FieldFilter("quota", "==", quota))
-        if year:
-            alt_query = alt_query.where(filter=FieldFilter("year", "==", year))
-        alt_docs = alt_query.stream()
-        for doc in alt_docs:
-            d = doc.to_dict()
-            # Normalize: map old field names to new ones
-            if "caste" in d and "category" not in d:
-                d["category"] = d["caste"]
-            _resolve_rank_fields(d)
-            rows.append(d)
+    logger.info(
+        "Cutoff lookup returned %s rows for branch=%s, category=%s, gender=%s, year=%s",
+        len(rows),
+        branch,
+        category,
+        gender,
+        year,
+    )
 
     # Normalize first_rank / last_rank / cutoff_rank for every row
     for r in rows:
@@ -563,7 +525,9 @@ def get_cutoff(
 
     for r in display_rows:
         if _gender_specific and r.get("gender") != gender:
-            continue
+            # When data only has "Any", still show it for Boys/Girls requests.
+            if not (r.get("gender") == "Any" and gender in {"Boys", "Girls"}):
+                continue
 
         fr = r.get("first_rank")   # None when not stored in Firestore
         lr = r.get("last_rank") if r.get("last_rank") is not None else r.get("cutoff_rank")
@@ -788,57 +752,52 @@ def get_cutoffs_flexible(
     if category:
         category = _normalise_category(category)
     
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Cannot query cutoff data.")
-        return []
+    def _seed_fallback_rows() -> list[dict]:
+        rows_local: list[dict] = []
+        for row in SEED_DATA:
+            if branch and _normalise_branch(str(row.get("branch") or "")) != branch:
+                continue
 
-    query = db.collection(COLLECTION)
+            row_category = str(row.get("category") or row.get("caste") or "")
+            if category and _normalise_category(row_category) != category:
+                continue
 
-    # Apply filters only for non-None parameters
-    if branch:
-        query = query.where(filter=FieldFilter("branch", "==", branch))
-    if category:
-        query = query.where(filter=FieldFilter("category", "==", category))
-    if gender:
-        query = query.where(filter=FieldFilter("gender", "==", gender))
-    if quota:
-        query = query.where(filter=FieldFilter("quota", "==", quota))
-    if year:
-        query = query.where(filter=FieldFilter("year", "==", year))
-    if round_num:
-        query = query.where(filter=FieldFilter("round", "==", round_num))
+            if gender and str(row.get("gender") or "") != gender:
+                continue
 
-    # Fetch documents
-    docs = query.limit(limit).stream()
-    rows = [doc.to_dict() for doc in docs]
-    
+            if quota and str(row.get("quota") or "") != quota:
+                continue
+
+            if year and int(row.get("year") or 0) != year:
+                continue
+
+            if round_num and int(row.get("round") or 0) != round_num:
+                continue
+
+            copied = dict(row)
+            if "category" not in copied and "caste" in copied:
+                copied["category"] = copied["caste"]
+            _resolve_rank_fields(copied)
+            rows_local.append(copied)
+
+            if len(rows_local) >= limit:
+                break
+
+        rows_local.sort(
+            key=lambda r: (
+                r.get("year", 0),
+                r.get("branch", ""),
+                r.get("category", ""),
+                r.get("round", 0),
+            ),
+            reverse=True,
+        )
+        logger.info("get_cutoffs_flexible seed fallback returned %s rows", len(rows_local))
+        return rows_local
+
+    # Keep guided lookups fast and deterministic by using local seed data.
+    rows = _seed_fallback_rows()
     logger.info(f"get_cutoffs_flexible returned {len(rows)} rows")
-    
-    # Handle old 'caste' field for EWS records
-    if category == "EWS" or not category:
-        alt_query = db.collection(COLLECTION)
-        if branch:
-            alt_query = alt_query.where(filter=FieldFilter("branch", "==", branch))
-        if category:
-            alt_query = alt_query.where(filter=FieldFilter("caste", "==", category))
-        if gender:
-            alt_query = alt_query.where(filter=FieldFilter("gender", "==", gender))
-        if quota:
-            alt_query = alt_query.where(filter=FieldFilter("quota", "==", quota))
-        if year:
-            alt_query = alt_query.where(filter=FieldFilter("year", "==", year))
-        
-        alt_docs = alt_query.limit(limit).stream()
-        for doc in alt_docs:
-            d = doc.to_dict()
-            # Normalize old field names
-            if "caste" in d and "category" not in d:
-                d["category"] = d["caste"]
-            if "cutoff_rank" not in d:
-                d["cutoff_rank"] = d.get("last_rank") or d.get("first_rank")
-            if d.get("cutoff_rank") is not None and d not in rows:
-                rows.append(d)
     
     # Sort by year (desc), branch, category, round (desc)
     rows.sort(
@@ -936,6 +895,269 @@ def format_cutoffs_table(
 
 # ── Helpers for Guided Cutoff Flow (Branch → Category → Gender → Year) ────
 
+@lru_cache(maxsize=8)
+def _get_available_branches_cached(quota: str) -> tuple[str, ...]:
+    """Cache branch discovery from the in-memory seed dataset."""
+    started_at = perf_counter()
+    branches = []
+    seen: set[str] = set()
+    for row in SEED_DATA:
+        if row.get("quota") != quota:
+            continue
+        branch = str(row.get("branch") or "").strip()
+        if not branch or branch in seen:
+            continue
+        seen.add(branch)
+        branches.append(branch)
+    result = tuple(sorted(branches))
+    logger.info(
+        "Cached %s unique branches from seed data in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=8)
+def _get_available_branches_firestore_cached(quota: str) -> tuple[str, ...]:
+    """Cache branch discovery from full Firestore cutoff records."""
+    started_at = perf_counter()
+    db = get_db()
+    if db is None:
+        return tuple()
+
+    branches: set[str] = set()
+    query = db.collection(COLLECTION).where(filter=FieldFilter("quota", "==", quota))
+    for doc in query.stream():
+        row = doc.to_dict() or {}
+        value = str(row.get("branch") or "").strip()
+        if not value:
+            continue
+        # Drop obvious non-branch noise values.
+        if value.lower().startswith("estd"):
+            continue
+        branches.add(value)
+
+    result = tuple(sorted(branches))
+    logger.info(
+        "Cached %s unique branches from Firestore in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+def _seed_row_matches(
+    row: dict,
+    *,
+    quota: str,
+    branch: str | None = None,
+    category: str | None = None,
+    gender: str | None = None,
+) -> bool:
+    """Return True when a seed row matches guided-flow filters."""
+    row_quota = str(row.get("quota") or "").strip()
+    if quota and row_quota != quota:
+        return False
+
+    if branch:
+        row_branch = str(row.get("branch") or "").strip()
+        if row_branch != branch:
+            return False
+
+    if category:
+        row_category = str(row.get("category") or row.get("caste") or "").strip()
+        if row_category != category:
+            return False
+
+    if gender:
+        row_gender = str(row.get("gender") or "").strip()
+        if row_gender != gender:
+            return False
+
+    return True
+
+
+@lru_cache(maxsize=64)
+def _get_available_categories_cached(quota: str, branch: str | None) -> tuple[str, ...]:
+    started_at = perf_counter()
+    categories: set[str] = set()
+    for row in SEED_DATA:
+        if not _seed_row_matches(row, quota=quota, branch=branch):
+            continue
+        category = str(row.get("category") or row.get("caste") or "").strip()
+        if category:
+            categories.add(category)
+    result = tuple(sorted(categories))
+    logger.info(
+        "Cached %s unique categories from seed data in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=64)
+def _get_available_categories_firestore_cached(quota: str, branch: str | None) -> tuple[str, ...]:
+    """Cache categories from full Firestore records for a branch."""
+    started_at = perf_counter()
+    db = get_db()
+    if db is None:
+        return tuple()
+
+    categories: set[str] = set()
+    query = db.collection(COLLECTION).where(filter=FieldFilter("quota", "==", quota))
+    if branch:
+        query = query.where(filter=FieldFilter("branch", "==", branch))
+
+    for doc in query.stream():
+        row = doc.to_dict() or {}
+        value = str(row.get("category") or row.get("caste") or "").strip()
+        if value:
+            categories.add(value)
+
+    result = tuple(sorted(categories))
+    logger.info(
+        "Cached %s unique categories from Firestore in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=256)
+def _get_available_genders_cached(quota: str, branch: str | None, category: str | None) -> tuple[str, ...]:
+    started_at = perf_counter()
+    genders: set[str] = set()
+    for row in SEED_DATA:
+        if not _seed_row_matches(row, quota=quota, branch=branch, category=category):
+            continue
+        row_gender = str(row.get("gender") or "").strip()
+        if row_gender:
+            genders.add(row_gender)
+    result = tuple(sorted(genders))
+    logger.info(
+        "Cached %s unique genders from seed data in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=256)
+def _get_available_genders_firestore_cached(
+    quota: str,
+    branch: str | None,
+    category: str | None,
+) -> tuple[str, ...]:
+    """Cache genders from full Firestore records for branch/category."""
+    started_at = perf_counter()
+    db = get_db()
+    if db is None:
+        return tuple()
+
+    genders: set[str] = set()
+    query = db.collection(COLLECTION).where(filter=FieldFilter("quota", "==", quota))
+    if branch:
+        query = query.where(filter=FieldFilter("branch", "==", branch))
+
+    for doc in query.stream():
+        row = doc.to_dict() or {}
+        row_category = str(row.get("category") or row.get("caste") or "").strip()
+        if category and row_category != category:
+            continue
+        row_gender = str(row.get("gender") or "").strip()
+        if row_gender:
+            genders.add(row_gender)
+
+    result = tuple(sorted(genders))
+    logger.info(
+        "Cached %s unique genders from Firestore in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=512)
+def _get_available_years_cached(
+    quota: str,
+    branch: str | None,
+    category: str | None,
+    gender: str | None,
+) -> tuple[int, ...]:
+    started_at = perf_counter()
+    years: set[int] = set()
+    for row in SEED_DATA:
+        if not _seed_row_matches(
+            row,
+            quota=quota,
+            branch=branch,
+            category=category,
+            gender=gender,
+        ):
+            continue
+        value = row.get("year")
+        if isinstance(value, int):
+            years.add(value)
+            continue
+        try:
+            parsed = int(str(value).strip())
+            years.add(parsed)
+        except Exception:
+            continue
+    result = tuple(sorted(years, reverse=True))
+    logger.info(
+        "Cached %s unique years from seed data in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
+@lru_cache(maxsize=512)
+def _get_available_years_firestore_cached(
+    quota: str,
+    branch: str | None,
+    category: str | None,
+    gender: str | None,
+) -> tuple[int, ...]:
+    """Cache years from full Firestore records for branch/category/gender."""
+    started_at = perf_counter()
+    db = get_db()
+    if db is None:
+        return tuple()
+
+    years: set[int] = set()
+    query = db.collection(COLLECTION).where(filter=FieldFilter("quota", "==", quota))
+    if branch:
+        query = query.where(filter=FieldFilter("branch", "==", branch))
+    if gender:
+        query = query.where(filter=FieldFilter("gender", "==", gender))
+
+    for doc in query.stream():
+        row = doc.to_dict() or {}
+        row_category = str(row.get("category") or row.get("caste") or "").strip()
+        if category and row_category != category:
+            continue
+        value = row.get("year")
+        if isinstance(value, int):
+            years.add(value)
+            continue
+        try:
+            years.add(int(str(value).strip()))
+        except Exception:
+            continue
+
+    result = tuple(sorted(years, reverse=True))
+    logger.info(
+        "Cached %s unique years from Firestore in %.3fs",
+        len(result),
+        perf_counter() - started_at,
+    )
+    return result
+
+
 def get_available_branches(quota: str = "Convenor") -> list[str]:
     """
     Get all unique branch codes available in the cutoff database.
@@ -945,27 +1167,19 @@ def get_available_branches(quota: str = "Convenor") -> list[str]:
     list[str] : Sorted list of branch codes (e.g., ["CSE", "ECE", "IT"])
     """
     logger.info(f"get_available_branches called with quota={quota}")
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available")
-        return []
-    
     try:
-        # Query all documents with the specified quota
-        query = db.collection(COLLECTION).where(filter=FieldFilter("quota", "==", quota))
-        docs = query.stream()
-        branches = set()
-        for doc in docs:
-            data = doc.to_dict()
-            if "branch" in data:
-                branches.add(data["branch"])
-        
-        result = sorted(list(branches))
-        logger.info(f"Found {len(result)} unique branches: {result}")
-        return result
+        normalized_quota = quota.strip() if quota else "Convenor"
+        firestore_values = list(_get_available_branches_firestore_cached(normalized_quota))
+        if firestore_values:
+            return firestore_values
+        return list(_get_available_branches_cached(normalized_quota))
     except Exception as e:
         logger.error(f"Error fetching available branches: {e}")
-        return []
+        try:
+            normalized_quota = quota.strip() if quota else "Convenor"
+            return list(_get_available_branches_cached(normalized_quota))
+        except Exception:
+            return []
 
 
 def get_available_categories(branch: str | None = None, quota: str = "Convenor") -> list[str]:
@@ -983,34 +1197,21 @@ def get_available_categories(branch: str | None = None, quota: str = "Convenor")
     list[str] : Sorted list of category codes (e.g., ["OC", "BC-A", "SC"])
     """
     logger.info(f"get_available_categories called with branch={branch}, quota={quota}")
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available")
-        return []
-    
     try:
-        query = db.collection(COLLECTION)
-        
-        if branch:
-            query = query.where(filter=FieldFilter("branch", "==", branch))
-        
-        query = query.where(filter=FieldFilter("quota", "==", quota))
-        docs = query.stream()
-        
-        categories = set()
-        for doc in docs:
-            data = doc.to_dict()
-            # Handle both "category" and "caste" fields (legacy support)
-            cat = data.get("category") or data.get("caste")
-            if cat:
-                categories.add(cat)
-        
-        result = sorted(list(categories))
-        logger.info(f"Found {len(result)} unique categories: {result}")
-        return result
+        normalized_quota = quota.strip() if quota else "Convenor"
+        normalized_branch = branch.strip() if branch else None
+        firestore_values = list(_get_available_categories_firestore_cached(normalized_quota, normalized_branch))
+        if firestore_values:
+            return firestore_values
+        return list(_get_available_categories_cached(normalized_quota, normalized_branch))
     except Exception as e:
         logger.error(f"Error fetching available categories: {e}")
-        return []
+        try:
+            normalized_quota = quota.strip() if quota else "Convenor"
+            normalized_branch = branch.strip() if branch else None
+            return list(_get_available_categories_cached(normalized_quota, normalized_branch))
+        except Exception:
+            return []
 
 
 def get_available_genders(branch: str | None = None, category: str | None = None, quota: str = "Convenor") -> list[str]:
@@ -1029,50 +1230,29 @@ def get_available_genders(branch: str | None = None, category: str | None = None
     list[str] : Sorted list of gender values (e.g., ["Any", "Boys", "Girls"])
     """
     logger.info(f"get_available_genders called with branch={branch}, category={category}, quota={quota}")
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available")
-        return []
-    
     try:
-        query = db.collection(COLLECTION)
-        
-        if branch:
-            query = query.where(filter=FieldFilter("branch", "==", branch))
-        
-        if category:
-            # Try both 'category' and 'caste' fields
-            # For now, try category first - more matches will be caught below in alt_query
-            query = query.where(filter=FieldFilter("category", "==", category))
-        
-        query = query.where(filter=FieldFilter("quota", "==", quota))
-        docs = query.stream()
-        
-        genders = set()
-        for doc in docs:
-            data = doc.to_dict()
-            if "gender" in data:
-                genders.add(data["gender"])
-        
-        # Also check with 'caste' field for older records
-        if category:
-            alt_query = db.collection(COLLECTION)
-            if branch:
-                alt_query = alt_query.where(filter=FieldFilter("branch", "==", branch))
-            alt_query = alt_query.where(filter=FieldFilter("caste", "==", category))
-            alt_query = alt_query.where(filter=FieldFilter("quota", "==", quota))
-            alt_docs = alt_query.stream()
-            for doc in alt_docs:
-                data = doc.to_dict()
-                if "gender" in data:
-                    genders.add(data["gender"])
-        
-        result = sorted(list(genders))
-        logger.info(f"Found {len(result)} unique genders: {result}")
-        return result
+        normalized_quota = quota.strip() if quota else "Convenor"
+        normalized_branch = branch.strip() if branch else None
+        normalized_category = category.strip() if category else None
+        firestore_values = list(
+            _get_available_genders_firestore_cached(
+                normalized_quota,
+                normalized_branch,
+                normalized_category,
+            )
+        )
+        if firestore_values:
+            return firestore_values
+        return list(_get_available_genders_cached(normalized_quota, normalized_branch, normalized_category))
     except Exception as e:
         logger.error(f"Error fetching available genders: {e}")
-        return []
+        try:
+            normalized_quota = quota.strip() if quota else "Convenor"
+            normalized_branch = branch.strip() if branch else None
+            normalized_category = category.strip() if category else None
+            return list(_get_available_genders_cached(normalized_quota, normalized_branch, normalized_category))
+        except Exception:
+            return []
 
 
 def get_available_years(branch: str | None = None, category: str | None = None, gender: str | None = None, quota: str = "Convenor") -> list[int]:
@@ -1093,50 +1273,43 @@ def get_available_years(branch: str | None = None, category: str | None = None, 
     list[int] : Sorted list of years in descending order (e.g., [2025, 2024, 2023])
     """
     logger.info(f"get_available_years called with branch={branch}, category={category}, gender={gender}, quota={quota}")
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available")
-        return []
-    
     try:
-        query = db.collection(COLLECTION)
-        
-        if branch:
-            query = query.where(filter=FieldFilter("branch", "==", branch))
-        
-        if category:
-            query = query.where(filter=FieldFilter("category", "==", category))
-        
-        if gender:
-            query = query.where(filter=FieldFilter("gender", "==", gender))
-        
-        query = query.where(filter=FieldFilter("quota", "==", quota))
-        docs = query.stream()
-        
-        years = set()
-        for doc in docs:
-            data = doc.to_dict()
-            if "year" in data and isinstance(data["year"], int):
-                years.add(data["year"])
-        
-        # Also check with 'caste' field for older records
-        if category:
-            alt_query = db.collection(COLLECTION)
-            if branch:
-                alt_query = alt_query.where(filter=FieldFilter("branch", "==", branch))
-            alt_query = alt_query.where(filter=FieldFilter("caste", "==", category))
-            if gender:
-                alt_query = alt_query.where(filter=FieldFilter("gender", "==", gender))
-            alt_query = alt_query.where(filter=FieldFilter("quota", "==", quota))
-            alt_docs = alt_query.stream()
-            for doc in alt_docs:
-                data = doc.to_dict()
-                if "year" in data and isinstance(data["year"], int):
-                    years.add(data["year"])
-        
-        result = sorted(list(years), reverse=True)  # Most recent first
-        logger.info(f"Found {len(result)} unique years: {result}")
-        return result
+        normalized_quota = quota.strip() if quota else "Convenor"
+        normalized_branch = branch.strip() if branch else None
+        normalized_category = category.strip() if category else None
+        normalized_gender = gender.strip() if gender else None
+        firestore_values = list(
+            _get_available_years_firestore_cached(
+                normalized_quota,
+                normalized_branch,
+                normalized_category,
+                normalized_gender,
+            )
+        )
+        if firestore_values:
+            return firestore_values
+        return list(
+            _get_available_years_cached(
+                normalized_quota,
+                normalized_branch,
+                normalized_category,
+                normalized_gender,
+            )
+        )
     except Exception as e:
         logger.error(f"Error fetching available years: {e}")
-        return []
+        try:
+            normalized_quota = quota.strip() if quota else "Convenor"
+            normalized_branch = branch.strip() if branch else None
+            normalized_category = category.strip() if category else None
+            normalized_gender = gender.strip() if gender else None
+            return list(
+                _get_available_years_cached(
+                    normalized_quota,
+                    normalized_branch,
+                    normalized_category,
+                    normalized_gender,
+                )
+            )
+        except Exception:
+            return []
