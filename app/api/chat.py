@@ -20,9 +20,7 @@ from app.classifier.intent_classifier import classify, ClassificationResult, Int
 from app.logic.cutoff_engine import (
     get_cutoff,
     get_available_branches,
-    get_available_categories,
-    get_available_genders,
-    get_available_years,
+    get_cutoffs_flexible,
 )
 from app.rag.retriever import retrieve
 from openai import AsyncOpenAI
@@ -407,6 +405,7 @@ _GUIDED_BRANCH_ALIAS_TO_CANONICAL = {
     "AID": "AID",
     "CSE-CSC": "CSE-CSC",
     "CSE- CSC": "CSE-CSC",
+    "CSE - CSC": "CSE-CSC",
     "CYS": "CSE-CSC",
     "CSE-CSO": "CSE-CSO",
     "CSO": "CSE-CSO",
@@ -417,6 +416,36 @@ _GUIDED_BRANCH_ALIAS_TO_CANONICAL = {
     "EIE": "EIE",
     "VLSI": "VLSI",
 }
+
+
+def _branch_alias_key(value: str) -> str:
+    """Normalize branch alias text for robust canonical mapping."""
+    compact_hyphen = re.sub(r"\s*-\s*", "-", value.strip())
+    compact_spaces = re.sub(r"\s+", " ", compact_hyphen)
+    return compact_spaces.upper()
+
+
+_GUIDED_BRANCH_ALIAS_KEY_TO_CANONICAL = {
+    _branch_alias_key(alias): canonical
+    for alias, canonical in _GUIDED_BRANCH_ALIAS_TO_CANONICAL.items()
+}
+
+
+def _to_guided_canonical_branch(raw_value: str) -> str | None:
+    """Map raw branch value to canonical guided branch code."""
+    cleaned = (raw_value or "").strip()
+    if not cleaned:
+        return None
+    if cleaned.lower().startswith("estd"):
+        return None
+
+    alias_key = _branch_alias_key(cleaned)
+    canonical = _GUIDED_BRANCH_ALIAS_KEY_TO_CANONICAL.get(alias_key)
+    if canonical:
+        return canonical
+
+    # Keep unknown-but-valid dataset values visible rather than dropping them.
+    return re.sub(r"\s+", " ", re.sub(r"\s*-\s*", "-", cleaned)).upper()
 
 _GUIDED_BRANCH_PREFERRED_ORDER = [
     "CSE",
@@ -446,6 +475,9 @@ _GUIDED_MAIN_CATEGORIES_ORDER = [
     "BC-D",
     "BC-E",
     "SC",
+    "SC-I",
+    "SC-II",
+    "SC-III",
     "ST",
     "EWS",
 ]
@@ -461,19 +493,31 @@ _GUIDED_CATEGORY_ALIAS_TO_CANONICAL = {
     "BC-D": "BC-D",
     "BC-E": "BC-E",
     "SC": "SC",
-    "SC-I": "SC",
-    "SC-II": "SC",
-    "SC-III": "SC",
+    "SC-I": "SC-I",
+    "SC-II": "SC-II",
+    "SC-III": "SC-III",
     "ST": "ST",
     "EWS": "EWS",
 }
 
 _GUIDED_SPECIAL_OR_INTERNAL_CATEGORIES = {"CAP", "NCC", "SPORTS", "OTHERS"}
+_GUIDED_ALLOWED_CATEGORIES = set(_GUIDED_MAIN_CATEGORIES_ORDER)
+
+# Year-specific SC category rules.
+# 2025: use SC-I, SC-II, SC-III
+# 2024, 2023, earlier: use SC only
+_YEAR_SPECIFIC_SC_CATEGORIES = {
+    2025: ["SC-I", "SC-II", "SC-III"],
+    2024: ["SC"],
+    2023: ["SC"],
+}
 
 # Canonical guided category -> raw dataset categories used for lookup.
 _GUIDED_CATEGORY_LOOKUP_VALUES = {
-    "BC-C": ["BC-C", "BC-B"],
-    "SC": ["SC", "SC-I", "SC-II", "SC-III"],
+    "SC": ["SC"],
+    "SC-I": ["SC-I"],
+    "SC-II": ["SC-II"],
+    "SC-III": ["SC-III"],
 }
 
 
@@ -963,18 +1007,15 @@ def _build_branch_options() -> list[dict]:
     if not available_raw:
         return []
 
-    branch_values: set[str] = set()
+    canonical_values: set[str] = set()
     for raw in available_raw:
-        raw_value = (raw or "").strip()
-        if not raw_value:
+        canonical = _to_guided_canonical_branch(str(raw or ""))
+        if not canonical:
             continue
-        # Drop obvious non-branch noise from data.
-        if raw_value.lower().startswith("estd"):
-            continue
-        branch_values.add(raw_value)
+        canonical_values.add(canonical)
 
-    ordered: list[str] = [code for code in _GUIDED_BRANCH_PREFERRED_ORDER if code in branch_values]
-    ordered.extend(sorted(code for code in branch_values if code not in ordered))
+    ordered: list[str] = [code for code in _GUIDED_BRANCH_PREFERRED_ORDER if code in canonical_values]
+    ordered.extend(sorted(code for code in canonical_values if code not in ordered))
 
     return [
         {
@@ -985,17 +1026,34 @@ def _build_branch_options() -> list[dict]:
     ]
 
 
-def _build_category_options(branch: str) -> list[dict]:
-    raw_categories = get_available_categories(branch=branch, quota="Convenor")
+def _build_category_options(branch: str, year: int = None) -> list[dict]:
+    """Build category options for branch and optional year. SC variants are year-dependent."""
+    rows = get_cutoffs_flexible(branch=branch, quota="Convenor", limit=0)
 
     canonical_found: set[str] = set()
-    for raw in raw_categories:
-        value = (raw or "").strip()
-        if not value or value in _GUIDED_SPECIAL_OR_INTERNAL_CATEGORIES:
+    for row in rows:
+        if not _row_has_valid_cutoff_data(row):
+            continue
+        value = str(row.get("category") or row.get("caste") or "").strip()
+        if not value:
             continue
         canonical = _GUIDED_CATEGORY_ALIAS_TO_CANONICAL.get(value)
-        if canonical:
-            canonical_found.add(canonical)
+        if not canonical:
+            continue
+        if canonical in _GUIDED_SPECIAL_OR_INTERNAL_CATEGORIES:
+            continue
+        if canonical not in _GUIDED_ALLOWED_CATEGORIES:
+            continue
+        
+        # Filter SC categories based on year if specified
+        if year is not None:
+            if canonical.startswith("SC"):
+                # Get allowed SC categories for this year
+                allowed_sc_cats = _YEAR_SPECIFIC_SC_CATEGORIES.get(year, ["SC"])
+                if canonical not in allowed_sc_cats:
+                    continue
+        
+        canonical_found.add(canonical)
 
     ordered = [cat for cat in _GUIDED_MAIN_CATEGORIES_ORDER if cat in canonical_found]
     ordered.extend(sorted(cat for cat in canonical_found if cat not in ordered))
@@ -1007,35 +1065,100 @@ def _get_lookup_categories_for_guided(category: str) -> list[str]:
     return _GUIDED_CATEGORY_LOOKUP_VALUES.get(category, [category])
 
 
+def _to_int_or_none(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_has_valid_cutoff_data(row: dict) -> bool:
+    """Treat rows with a positive closing/cutoff rank as valid guided data."""
+    cutoff_rank = _to_int_or_none(row.get("cutoff_rank"))
+    if cutoff_rank is not None and cutoff_rank > 0:
+        return True
+
+    last_rank = _to_int_or_none(row.get("last_rank"))
+    if last_rank is not None and last_rank > 0:
+        return True
+
+    first_rank = _to_int_or_none(row.get("first_rank"))
+    return first_rank is not None and first_rank > 0
+
+
 def _build_gender_options(branch: str, category: str) -> list[dict]:
-    # Keep gender choices student-facing and stable regardless of sparse raw data.
-    _ = branch
-    _ = category
-    return [{"label": gender, "value": gender} for gender in _GUIDED_GENDER_OPTIONS]
+    raw_genders = {
+        str(row.get("gender") or "").strip()
+        for lookup_category in _get_lookup_categories_for_guided(category)
+        for row in get_cutoffs_flexible(
+            branch=branch,
+            category=lookup_category,
+            quota="Convenor",
+            limit=0,
+        )
+        if _row_has_valid_cutoff_data(row)
+    }
+
+    has_any = "Any" in raw_genders
+    has_boys = "Boys" in raw_genders or has_any
+    has_girls = "Girls" in raw_genders or has_any
+
+    available: list[str] = []
+    if has_boys:
+        available.append("Boys")
+    if has_girls:
+        available.append("Girls")
+    if has_boys and has_girls:
+        available.append("Both")
+
+    ordered = [gender for gender in _GUIDED_GENDER_OPTIONS if gender in available]
+    return [{"label": gender, "value": gender} for gender in ordered]
 
 
-def _build_year_options(branch: str, category: str, gender: str) -> list[dict]:
+def _build_year_options(branch: str, category: str = None, gender: str = None) -> list[dict]:
+    """Build year options. After branch selection, shows all available years.
+    When called with category and gender, filters to years with data for that combination."""
     years_set: set[int] = set()
-    if gender == "Both":
-        genders_to_query = ["Boys", "Girls", "Any"]
-    elif gender in {"Boys", "Girls"}:
-        genders_to_query = [gender, "Any"]
-    elif gender == "Any":
-        # Backward compatibility for typed "Any" in old sessions.
-        genders_to_query = ["Any", "Boys", "Girls"]
-    else:
-        genders_to_query = [gender]
+    
+    if category is not None and gender is not None:
+        # Filtered year options for specific category/gender combination
+        if gender == "Both":
+            genders_to_query = ["Boys", "Girls", "Any"]
+        elif gender in {"Boys", "Girls"}:
+            genders_to_query = [gender, "Any"]
+        elif gender == "Any":
+            genders_to_query = ["Any", "Boys", "Girls"]
+        else:
+            genders_to_query = [gender]
 
-    for lookup_category in _get_lookup_categories_for_guided(category):
-        for lookup_gender in genders_to_query:
-            years_set.update(
-                get_available_years(
+        for lookup_category in _get_lookup_categories_for_guided(category):
+            for lookup_gender in genders_to_query:
+                rows = get_cutoffs_flexible(
                     branch=branch,
                     category=lookup_category,
                     gender=lookup_gender,
                     quota="Convenor",
+                    limit=0,
                 )
-            )
+                for row in rows:
+                    if not _row_has_valid_cutoff_data(row):
+                        continue
+                    parsed_year = _to_int_or_none(row.get("year"))
+                    if parsed_year is None:
+                        continue
+                    years_set.add(parsed_year)
+    else:
+        # All available years for branch (called right after branch selection)
+        rows = get_cutoffs_flexible(branch=branch, quota="Convenor", limit=0)
+        for row in rows:
+            if not _row_has_valid_cutoff_data(row):
+                continue
+            parsed_year = _to_int_or_none(row.get("year"))
+            if parsed_year is None:
+                continue
+            years_set.add(parsed_year)
 
     years = sorted(years_set, reverse=True)
     return [{"label": str(year), "value": str(year)} for year in years]
@@ -1066,20 +1189,21 @@ def _resolve_selected_option(user_message: str, options: list[dict]) -> str | No
 
 
 def _guided_cutoff_next_step(state: dict[str, str]) -> str:
-    """Determine next missing step in branch -> category -> gender -> year order."""
+    """Determine next missing step in branch -> year -> category -> gender order."""
     if not state.get("branch"):
         return "branch"
+    if not state.get("year"):
+        return "year"
     if not state.get("category"):
         return "category"
     if not state.get("gender"):
         return "gender"
-    if not state.get("year"):
-        return "year"
     return "done"
 
 
 def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatResponse:
-    """Build the next guided-flow response based on missing step."""
+    """Build the next guided-flow response based on missing step.
+    Flow order: branch -> year -> category -> gender."""
     _ = language
     step = _guided_cutoff_next_step(state)
 
@@ -1091,38 +1215,13 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
             metadata={"awaiting_cutoff_step": "branch"},
         )
 
-    if step == "category":
-        options = _build_category_options(state["branch"])
-        return _build_guided_prompt(
-            "Please select your category/caste:",
-            options,
-            metadata={"awaiting_cutoff_step": "category", "branch": state["branch"]},
-        )
-
-    if step == "gender":
-        options = _build_gender_options(state["branch"], state["category"])
-        return _build_guided_prompt(
-            "Please select gender:",
-            options,
-            metadata={
-                "awaiting_cutoff_step": "gender",
-                "branch": state["branch"],
-                "category": state["category"],
-            },
-        )
-
     if step == "year":
-        options = _build_year_options(state["branch"], state["category"], state["gender"])
+        options = _build_year_options(state["branch"])
         if not options:
-            alt_gender_options = _build_gender_options(state["branch"], state["category"])
             return _build_guided_prompt(
-                "No cutoff data found for this combination. Please choose a different gender option:",
-                alt_gender_options,
-                metadata={
-                    "awaiting_cutoff_step": "gender",
-                    "branch": state["branch"],
-                    "category": state["category"],
-                },
+                "No years available for this branch.",
+                _build_branch_options(),
+                metadata={"awaiting_cutoff_step": "branch"},
             )
         return _build_guided_prompt(
             "Please select year:",
@@ -1130,8 +1229,54 @@ def _build_cutoff_step_response(language: str, state: dict[str, str]) -> ChatRes
             metadata={
                 "awaiting_cutoff_step": "year",
                 "branch": state["branch"],
+            },
+        )
+
+    if step == "category":
+        year = int(state["year"]) if state.get("year") else None
+        options = _build_category_options(state["branch"], year)
+        if not options:
+            alt_year_options = _build_year_options(state["branch"])
+            return _build_guided_prompt(
+                "No categories available for this branch and year. Please select a different year:",
+                alt_year_options,
+                metadata={
+                    "awaiting_cutoff_step": "year",
+                    "branch": state["branch"],
+                },
+            )
+        return _build_guided_prompt(
+            "Please select your category/caste:",
+            options,
+            metadata={
+                "awaiting_cutoff_step": "category",
+                "branch": state["branch"],
+                "year": state["year"],
+            },
+        )
+
+    if step == "gender":
+        options = _build_gender_options(state["branch"], state["category"])
+        if not options:
+            year = int(state["year"]) if state.get("year") else None
+            alt_category_options = _build_category_options(state["branch"], year)
+            return _build_guided_prompt(
+                "No gender data available for this combination. Please select a different category:",
+                alt_category_options,
+                metadata={
+                    "awaiting_cutoff_step": "category",
+                    "branch": state["branch"],
+                    "year": state["year"],
+                },
+            )
+        return _build_guided_prompt(
+            "Please select gender:",
+            options,
+            metadata={
+                "awaiting_cutoff_step": "gender",
+                "branch": state["branch"],
+                "year": state["year"],
                 "category": state["category"],
-                "gender": state["gender"],
             },
         )
 
@@ -1143,7 +1288,7 @@ async def _handle_guided_cutoff_flow(
     session_id: str,
     language: str,
 ) -> Optional[ChatResponse]:
-    """Guided cutoff flow: branch -> category -> gender -> year -> final response."""
+    """Guided cutoff flow: branch -> year -> category -> gender -> final response."""
     state = _CUTOFF_FLOW_STATE_BY_SESSION.get(session_id)
 
     if state is None:
@@ -1156,8 +1301,13 @@ async def _handle_guided_cutoff_flow(
         selected = _resolve_selected_option(user_message, _build_branch_options())
         if selected:
             state["branch"] = selected
-    elif current_step == "category" and state.get("branch"):
-        selected = _resolve_selected_option(user_message, _build_category_options(state["branch"]))
+    elif current_step == "year" and state.get("branch"):
+        selected = _resolve_selected_option(user_message, _build_year_options(state["branch"]))
+        if selected:
+            state["year"] = selected
+    elif current_step == "category" and state.get("branch") and state.get("year"):
+        year = int(state["year"])
+        selected = _resolve_selected_option(user_message, _build_category_options(state["branch"], year))
         if selected:
             state["category"] = selected
     elif current_step == "gender" and state.get("branch") and state.get("category"):
@@ -1169,10 +1319,6 @@ async def _handle_guided_cutoff_flow(
                 selected = "Both"
         if selected:
             state["gender"] = selected
-    elif current_step == "year" and state.get("branch") and state.get("category") and state.get("gender"):
-        selected = _resolve_selected_option(user_message, _build_year_options(state["branch"], state["category"], state["gender"]))
-        if selected:
-            state["year"] = selected
 
     detected_branch = extract_branch(user_message)
     detected_category = extract_category(user_message)
@@ -1181,15 +1327,15 @@ async def _handle_guided_cutoff_flow(
 
     if detected_branch:
         if not state.get("branch"):
-            state["branch"] = detected_branch
+            state["branch"] = _to_guided_canonical_branch(detected_branch) or detected_branch
+    if detected_year:
+        state["year"] = str(detected_year)
     if detected_category and detected_category != "ALL":
         state["category"] = _GUIDED_CATEGORY_ALIAS_TO_CANONICAL.get(detected_category, detected_category)
     if detected_gender == "ALL":
         state["gender"] = "Both"
     elif detected_gender in {"Boys", "Girls"}:
         state["gender"] = detected_gender
-    if detected_year:
-        state["year"] = str(detected_year)
 
     if _guided_cutoff_next_step(state) != "done":
         _CUTOFF_FLOW_STATE_BY_SESSION[session_id] = state

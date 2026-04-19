@@ -665,8 +665,8 @@ def list_branches() -> list[str]:
     cache = get_cutoff_cache()
     raw_branches = cache.list_branches()
     if not raw_branches:
-        logger.warning("Cutoff cache is empty. Returning default branch list.")
-        return sorted(VALID_BRANCHES)
+        logger.warning("Cutoff cache is empty. Returning no branch values.")
+        return []
 
     normalised: set[str] = set()
     for raw in raw_branches:
