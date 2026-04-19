@@ -25,6 +25,8 @@ import re
 from pathlib import Path
 
 from app.data.init_db import get_db, COLLECTION
+from app.config import get_settings
+from app.logic.cutoff_cache import refresh_cutoff_cache_from_firestore
 
 
 # ── Column header mapping ────────────────────────────────────
@@ -314,6 +316,17 @@ def main():
         return
 
     upload_to_firestore(records, clear_existing=args.clear)
+
+    settings = get_settings()
+    refreshed = refresh_cutoff_cache_from_firestore(
+        get_db_func=get_db,
+        collection_name=COLLECTION,
+        snapshot_path=settings.CUTOFF_SNAPSHOT_PATH,
+    )
+    if refreshed:
+        print("🔄  Refreshed local cutoff snapshot after ingest")
+    else:
+        print("⚠️  Ingest completed, but local cutoff snapshot refresh failed")
 
 
 if __name__ == "__main__":

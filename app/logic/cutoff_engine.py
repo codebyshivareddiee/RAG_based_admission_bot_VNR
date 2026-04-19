@@ -58,6 +58,15 @@ except Exception as e:
     traceback.print_exc()
     raise
 
+logger.info("cutoff_engine.py: importing cutoff cache...")
+try:
+    from app.logic.cutoff_cache import get_cutoff_cache
+    logger.info("cutoff_engine.py: cutoff cache OK")
+except Exception as e:
+    logger.error(f"cutoff_engine.py: FAILED cutoff cache import: {e}")
+    traceback.print_exc()
+    raise
+
 
 @dataclass
 class CutoffResult:
@@ -584,14 +593,6 @@ def check_eligibility(
     Check if a given rank qualifies for a branch + category.
     Uses the latest available year/round if not specified.
     """
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Cannot check eligibility.")
-        return CutoffResult(
-            message="WARNING: Cutoff database is currently unavailable. Please try general admission questions instead, or contact admissionsenquiry@vnrvjiet.in for eligibility information.",
-            found=False,
-        )
-    
     result = get_cutoff(branch, category, year, round_num, gender=gender)
 
     if result.cutoff_rank is None:
@@ -636,7 +637,7 @@ def check_eligibility(
 
 
 def list_branches() -> list[str]:
-    """Return all distinct, normalised B.Tech branches in Firestore.
+    """Return all distinct, normalised B.Tech branches from local cache.
 
     Raw Firestore values are normalised (e.g. CIVIL → CIV, MECH → ME)
     and deduplicated before being returned.  Non-branch strings such as
@@ -661,15 +662,14 @@ def list_branches() -> list[str]:
         "VLSI",      # VLSI Design
     }
 
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Returning default branch list.")
+    cache = get_cutoff_cache()
+    raw_branches = cache.list_branches()
+    if not raw_branches:
+        logger.warning("Cutoff cache is empty. Returning default branch list.")
         return sorted(VALID_BRANCHES)
 
-    docs = db.collection(COLLECTION).stream()
     normalised: set[str] = set()
-    for doc in docs:
-        raw = doc.to_dict().get("branch", "")
+    for raw in raw_branches:
         if not raw:
             continue
         nb = _normalise_branch(raw)
@@ -680,36 +680,23 @@ def list_branches() -> list[str]:
 
 
 def list_categories() -> list[str]:
-    """Return all distinct categories in Firestore."""
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Returning default category list.")
-        return ["OC", "BC-A", "BC-B", "BC-C", "BC-D", "SC", "ST", "EWS"]
-    
-    docs = db.collection(COLLECTION).stream()
-    cats = sorted({doc.to_dict().get("category", "") for doc in docs})
-    return [c for c in cats if c]
+    """Return all distinct categories from local cache."""
+    cats = get_cutoff_cache().list_categories()
+    if cats:
+        return cats
+    return ["OC", "BC-A", "BC-B", "BC-C", "BC-D", "SC", "ST", "EWS"]
 
 
 def get_all_cutoffs_for_branch(
     branch: str, year: int | None = None
 ) -> list[dict]:
-    """Return every document for a branch (all categories/rounds)."""
+    """Return every cached record for a branch (all categories/rounds)."""
     branch = _normalise_branch(branch)
-    db = get_db()
-    if db is None:
-        logger.warning("Firestore not available. Cannot get cutoffs.")
-        return []
-    
-    query = db.collection(COLLECTION).where(
-        filter=FieldFilter("branch", "==", branch)
-    )
-
-    if year:
-        query = query.where(filter=FieldFilter("year", "==", year))
-
-    docs = query.stream()
-    rows = [doc.to_dict() for doc in docs]
+    rows = get_cutoff_cache().query(year=year, quota=None, limit=0)
+    rows = [
+        row for row in rows
+        if _normalise_branch(str(row.get("branch") or "")) == branch
+    ]
     rows.sort(
         key=lambda r: (r.get("year", 0), r.get("category", ""), r.get("round", 0)),
         reverse=True,
@@ -752,51 +739,31 @@ def get_cutoffs_flexible(
     if category:
         category = _normalise_category(category)
     
-    def _seed_fallback_rows() -> list[dict]:
-        rows_local: list[dict] = []
-        for row in SEED_DATA:
-            if branch and _normalise_branch(str(row.get("branch") or "")) != branch:
-                continue
+    # Runtime path is cache-only (loaded at startup from Firestore/snapshot/seed).
+    cache = get_cutoff_cache()
+    rows = cache.query(
+        gender=gender,
+        year=year,
+        round_num=round_num,
+        quota=quota,
+        limit=0,
+    )
 
-            row_category = str(row.get("category") or row.get("caste") or "")
-            if category and _normalise_category(row_category) != category:
-                continue
+    if branch:
+        rows = [
+            row for row in rows
+            if _normalise_branch(str(row.get("branch") or "")) == branch
+        ]
 
-            if gender and str(row.get("gender") or "") != gender:
-                continue
+    if category:
+        rows = [
+            row for row in rows
+            if _normalise_category(str(row.get("category") or row.get("caste") or "")) == category
+        ]
 
-            if quota and str(row.get("quota") or "") != quota:
-                continue
+    if limit and limit > 0:
+        rows = rows[:limit]
 
-            if year and int(row.get("year") or 0) != year:
-                continue
-
-            if round_num and int(row.get("round") or 0) != round_num:
-                continue
-
-            copied = dict(row)
-            if "category" not in copied and "caste" in copied:
-                copied["category"] = copied["caste"]
-            _resolve_rank_fields(copied)
-            rows_local.append(copied)
-
-            if len(rows_local) >= limit:
-                break
-
-        rows_local.sort(
-            key=lambda r: (
-                r.get("year", 0),
-                r.get("branch", ""),
-                r.get("category", ""),
-                r.get("round", 0),
-            ),
-            reverse=True,
-        )
-        logger.info("get_cutoffs_flexible seed fallback returned %s rows", len(rows_local))
-        return rows_local
-
-    # Keep guided lookups fast and deterministic by using local seed data.
-    rows = _seed_fallback_rows()
     logger.info(f"get_cutoffs_flexible returned {len(rows)} rows")
     
     # Sort by year (desc), branch, category, round (desc)
@@ -1169,17 +1136,10 @@ def get_available_branches(quota: str = "Convenor") -> list[str]:
     logger.info(f"get_available_branches called with quota={quota}")
     try:
         normalized_quota = quota.strip() if quota else "Convenor"
-        firestore_values = list(_get_available_branches_firestore_cached(normalized_quota))
-        if firestore_values:
-            return firestore_values
-        return list(_get_available_branches_cached(normalized_quota))
+        return get_cutoff_cache().list_branches(quota=normalized_quota)
     except Exception as e:
-        logger.error(f"Error fetching available branches: {e}")
-        try:
-            normalized_quota = quota.strip() if quota else "Convenor"
-            return list(_get_available_branches_cached(normalized_quota))
-        except Exception:
-            return []
+        logger.error(f"Error fetching available branches from cache: {e}")
+        return []
 
 
 def get_available_categories(branch: str | None = None, quota: str = "Convenor") -> list[str]:
@@ -1200,18 +1160,13 @@ def get_available_categories(branch: str | None = None, quota: str = "Convenor")
     try:
         normalized_quota = quota.strip() if quota else "Convenor"
         normalized_branch = branch.strip() if branch else None
-        firestore_values = list(_get_available_categories_firestore_cached(normalized_quota, normalized_branch))
-        if firestore_values:
-            return firestore_values
-        return list(_get_available_categories_cached(normalized_quota, normalized_branch))
+        return get_cutoff_cache().list_categories(
+            branch=normalized_branch,
+            quota=normalized_quota,
+        )
     except Exception as e:
-        logger.error(f"Error fetching available categories: {e}")
-        try:
-            normalized_quota = quota.strip() if quota else "Convenor"
-            normalized_branch = branch.strip() if branch else None
-            return list(_get_available_categories_cached(normalized_quota, normalized_branch))
-        except Exception:
-            return []
+        logger.error(f"Error fetching available categories from cache: {e}")
+        return []
 
 
 def get_available_genders(branch: str | None = None, category: str | None = None, quota: str = "Convenor") -> list[str]:
@@ -1234,25 +1189,14 @@ def get_available_genders(branch: str | None = None, category: str | None = None
         normalized_quota = quota.strip() if quota else "Convenor"
         normalized_branch = branch.strip() if branch else None
         normalized_category = category.strip() if category else None
-        firestore_values = list(
-            _get_available_genders_firestore_cached(
-                normalized_quota,
-                normalized_branch,
-                normalized_category,
-            )
+        return get_cutoff_cache().list_genders(
+            branch=normalized_branch,
+            category=normalized_category,
+            quota=normalized_quota,
         )
-        if firestore_values:
-            return firestore_values
-        return list(_get_available_genders_cached(normalized_quota, normalized_branch, normalized_category))
     except Exception as e:
-        logger.error(f"Error fetching available genders: {e}")
-        try:
-            normalized_quota = quota.strip() if quota else "Convenor"
-            normalized_branch = branch.strip() if branch else None
-            normalized_category = category.strip() if category else None
-            return list(_get_available_genders_cached(normalized_quota, normalized_branch, normalized_category))
-        except Exception:
-            return []
+        logger.error(f"Error fetching available genders from cache: {e}")
+        return []
 
 
 def get_available_years(branch: str | None = None, category: str | None = None, gender: str | None = None, quota: str = "Convenor") -> list[int]:
@@ -1278,38 +1222,12 @@ def get_available_years(branch: str | None = None, category: str | None = None, 
         normalized_branch = branch.strip() if branch else None
         normalized_category = category.strip() if category else None
         normalized_gender = gender.strip() if gender else None
-        firestore_values = list(
-            _get_available_years_firestore_cached(
-                normalized_quota,
-                normalized_branch,
-                normalized_category,
-                normalized_gender,
-            )
-        )
-        if firestore_values:
-            return firestore_values
-        return list(
-            _get_available_years_cached(
-                normalized_quota,
-                normalized_branch,
-                normalized_category,
-                normalized_gender,
-            )
+        return get_cutoff_cache().list_years(
+            branch=normalized_branch,
+            category=normalized_category,
+            gender=normalized_gender,
+            quota=normalized_quota,
         )
     except Exception as e:
-        logger.error(f"Error fetching available years: {e}")
-        try:
-            normalized_quota = quota.strip() if quota else "Convenor"
-            normalized_branch = branch.strip() if branch else None
-            normalized_category = category.strip() if category else None
-            normalized_gender = gender.strip() if gender else None
-            return list(
-                _get_available_years_cached(
-                    normalized_quota,
-                    normalized_branch,
-                    normalized_category,
-                    normalized_gender,
-                )
-            )
-        except Exception:
-            return []
+        logger.error(f"Error fetching available years from cache: {e}")
+        return []

@@ -15,6 +15,9 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse
 from typing import Optional
 from io import BytesIO
+from app.config import get_settings
+from app.data.init_db import get_db, COLLECTION
+from app.logic.cutoff_cache import get_cutoff_cache, refresh_cutoff_cache_from_firestore
 
 try:
     from app.logic.contact_requests import ContactRequestService
@@ -34,6 +37,37 @@ def verify_admin(password: str):
     if password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
+
+
+@router.get("/cutoff-cache-stats")
+async def cutoff_cache_stats(password: str):
+    """Inspect cache status and hydration source."""
+    verify_admin(password)
+    return get_cutoff_cache().stats()
+
+
+@router.post("/refresh-cutoff-cache")
+async def refresh_cutoff_cache(password: str):
+    """Reload cutoff cache from Firestore and persist snapshot."""
+    verify_admin(password)
+
+    settings = get_settings()
+    refreshed = refresh_cutoff_cache_from_firestore(
+        get_db_func=get_db,
+        collection_name=COLLECTION,
+        snapshot_path=settings.CUTOFF_SNAPSHOT_PATH,
+    )
+
+    if not refreshed:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not refresh cutoff cache from Firestore.",
+        )
+
+    return {
+        "status": "ok",
+        "cache": get_cutoff_cache().stats(),
+    }
 
 
 @router.get("/contacts", response_class=HTMLResponse)

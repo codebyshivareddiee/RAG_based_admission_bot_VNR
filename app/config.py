@@ -70,6 +70,10 @@ class Settings:
 
     # ── Paths ─────────────────────────────────────────────────
     SYSTEM_PROMPT_PATH: str = str(BASE_DIR / "prompts" / "system_prompt.txt")
+    CUTOFF_SNAPSHOT_PATH: str = os.getenv(
+        "CUTOFF_SNAPSHOT_PATH",
+        str(BASE_DIR / "data" / "seed_data.json"),
+    )
 
     # ── Web Search Fallback ───────────────────────────────────
     WEB_SEARCH_ENABLED: bool = os.getenv("WEB_SEARCH_ENABLED", "true").lower() == "true"
