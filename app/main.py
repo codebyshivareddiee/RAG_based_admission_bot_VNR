@@ -26,7 +26,8 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.api.chat import router as chat_router
 from app.api.admin import router as admin_router
-from app.data.init_db import init_db
+from app.data.init_db import init_db, get_db, COLLECTION, SEED_DATA
+from app.logic.cutoff_cache import hydrate_cutoff_cache
 
 settings = get_settings()
 
@@ -35,12 +36,23 @@ FRONTEND_DIR = Path(__file__).parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: initialise the cutoff database."""
+    """Startup: initialise datastore and hydrate local cutoff cache."""
     try:
         init_db()
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         # Don't re-raise — let the server start even if DB init fails
+
+    try:
+        source = hydrate_cutoff_cache(
+            get_db_func=get_db,
+            collection_name=COLLECTION,
+            snapshot_path=settings.CUTOFF_SNAPSHOT_PATH,
+            fallback_rows=SEED_DATA,
+        )
+        logger.info("Cutoff cache hydrated from %s", source)
+    except Exception as e:
+        logger.error(f"Cutoff cache hydration failed: {e}")
     yield
 
 

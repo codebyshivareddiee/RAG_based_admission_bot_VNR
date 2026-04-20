@@ -1279,10 +1279,28 @@
     }
   }
 
-  function returnToHome() {
+  async function returnToHome() {
     // Stop any speech and listening
     stopSpeech();
     stopListening();
+    hideTyping();
+
+    const previousSessionId = sessionId;
+
+    const resetPromise = fetch(`${API_BASE}/api/chat/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "home",
+        session_id: previousSessionId,
+        language: currentLanguage,
+      }),
+    }).catch((error) => {
+      console.error("Failed to reset chat session:", error);
+    });
+
+    sessionId = generateId();
+    sessionStorage.setItem("chatbot_session", sessionId);
     
     // Clear visual messages
     messagesEl.innerHTML = "";
@@ -1290,12 +1308,13 @@
     // Hide input area
     inputArea.style.display = "none";
     inputEl.value = "";
-    
-    // Keep the same session ID to preserve chat history
-    // This allows the model to use previous conversation context
+    inputEl.disabled = false;
+    sendBtn.disabled = false;
     
     // Show welcome screen
     showWelcome();
+
+    await resetPromise;
   }
 
   /** Render main category buttons + "Others" */
@@ -1546,6 +1565,7 @@
 
     const optionsContainer = document.createElement("div");
     optionsContainer.className = "clickable-options";
+    const guidedBackOptionValue = "__guided_previous_option__";
 
     options.forEach((opt) => {
       const btn = document.createElement("button");
@@ -1556,6 +1576,12 @@
         e.stopPropagation();
         // Remove all option buttons after selection
         optionsContainer.remove();
+        // Show friendly user text for back-action while preserving backend token.
+        if (opt.value === guidedBackOptionValue) {
+          addUserMessage("Back");
+          sendMessage(opt.value, true);
+          return;
+        }
         // Send the value automatically
         sendMessage(opt.value);
       });
@@ -1905,7 +1931,7 @@
   
   homeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    returnToHome();
+    void returnToHome();
   });
   
   micBtn.addEventListener("click", (e) => {
