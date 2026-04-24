@@ -407,7 +407,11 @@ def detect_language(text: str) -> str:
         if re.search(pattern, text):
             # For Devanagari (Hindi/Marathi), check for common words
             if lang == "hi":
-                marathi_words = ["आहे", "आहेत", "आला", "येत", "होत", "काही", "कशी", "कसे"]
+                marathi_words = [
+                    "आहे", "आहेत", "आला", "येत", "होत", "काही", "कशी", "कसे",
+                    "कागदपत्रे", "पाहिजे", "सांगा", "तुमची", "तुमचा",
+                    "प्रवेशाबद्दल", "कोणती",
+                ]
                 if any(word in text for word in marathi_words):
                     return "mr"
                 return "hi"

@@ -76,13 +76,26 @@ Fee Structure (Approximate for 2025-26)
 ---------------------------------------
 - B.Tech Application Fee: ₹2,000 (non-refundable)
 - M.Tech Application Fee: ₹1,000 (non-refundable)
-- Convenor Quota (B.Tech): ₹1,35,000 per annum (tuition fee as per Telangana government norms)
+- Convenor Quota /Convenor(B.Tech): The annual tuition fee for the 2022-25 block period was ₹1,35,000. For the current 2025-28 block period, the approved fee is ₹1,59,600 per annum, following a comprehensive hearing and formal acceptance by the Telangana Admission and Fee Regulatory Committee (TAFRC).
+- Miscellaneous fee will be known at the time of joining as per the government norms and may vary each year.
 - M.Tech Fee: ₹1,30,000 per annum (applicable for academic year 2025)
 - MCA Fee: ₹27,000 per annum (applicable for academic year 2025)
 - Management → NRI (B.Tech): $3000-$5000 per annum (varies by branch and rupee exchange rates)
 - Hostel Fee: ₹1,35,000 per annum (including mess and laundry)
 - Note: Fee reimbursement available for eligible students under Telangana government schemes
 - ⚠️ Any fee paid is non-refundable.
+
+Lateral Entry Fee Structure(Diploma to B.Tech):
+------------------------------------------------
+-The tuition fee for Lateral Entry students is the same as the Convenor Quota (Category A) student fee. For the academic year 2025-26, the approved fee is ₹1,59,600 per annum. Please note that fees are subject to the TAFRC block period regulations and may vary based on government guidelines for each academic year.
+- ⚠️ Any fee paid is non-refundable
+Transportation Fee
+------------------
+👉 BTech First Year Transport Fee
+Click here to view: https://drive.google.com/file/d/168m7_JCOf4amaYQ3vEKe13xq08ROdfwJ/view
+
+👉 BTech 2nd, 3rd & 4th Year Transport Fee
+Click here to view: https://drive.google.com/file/d/1ajwdSVtuH32h1BgWv7hkDVzD1RlD8fal/view?usp=drivesdk
 
 Scholarships
 ------------
@@ -111,7 +124,7 @@ Hostel Information
 - Mess facility with vegetarian and non-vegetarian options
 - In-house laundry service
 - Wi-Fi in hostels
-
+-Study Table and Chair provided in each room,lockers are provided in the hostel rooms. 
 
 
 B.Tech. Programmes & Tuition Fee (Per Annum)-NRI Quota
