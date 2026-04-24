@@ -48,14 +48,12 @@ class Settings:
     PINECONE_ENVIRONMENT: str = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
 
     # ── Server ────────────────────────────────────────────────
-    HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    HOST: str = os.getenv("HOST", "")
+    PORT: int = int(os.getenv("PORT", os.getenv("APP_PORT", "0")))
     ALLOWED_ORIGINS: list[str] = [
         o.strip()
-        for o in os.getenv(
-            "ALLOWED_ORIGINS",
-            "http://localhost:3000,http://localhost:8000",
-        ).split(",")
+        for o in os.getenv("ALLOWED_ORIGINS", "").split(",")
+        if o.strip()
     ]
 
     # ── Rate limiting ─────────────────────────────────────────

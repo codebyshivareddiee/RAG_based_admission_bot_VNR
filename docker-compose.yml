@@ -5,12 +5,15 @@ services:
     build: .
     container_name: vnrvjiet-admissions-chatbot
     ports:
-      - "${PORT:-8000}:8000"
+      - "${PORT}:${APP_PORT}"
     env_file:
       - .env
+    environment:
+      HOST: ${HOST}
+      PORT: ${APP_PORT}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${APP_PORT}/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

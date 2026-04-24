@@ -240,14 +240,15 @@ python -m app.rag.ingest --docs-dir docs --source website --year 2025
 ### 6. Run the server
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Ensure HOST and PORT (or APP_PORT) are set in your .env
+python railway_start.py
 ```
 
 ### 7. Open the widget
 
-Visit **http://localhost:8000/widget** in your browser.
+Visit **http://localhost:<PORT>/widget** in your browser.
 
-API docs at **http://localhost:8000/docs**.
+API docs at **http://localhost:<PORT>/docs**.
 
 ## EAPCET Cutoff Data
 
@@ -603,13 +604,13 @@ Bot: "You've asked 4 questions so far in this conversation."
 View conversation history for any session:
 
 ```bash
-curl http://localhost:8000/api/session/s_abc12345/history
+curl "http://localhost:${PORT}/api/session/s_abc12345/history"
 ```
 
 List all active sessions:
 
 ```bash
-curl http://localhost:8000/api/sessions
+curl "http://localhost:${PORT}/api/sessions"
 ```
 
 ## Environment Variables
@@ -624,6 +625,9 @@ curl http://localhost:8000/api/sessions
 | `PINECONE_API_KEY` | Pinecone API key | — |
 | `PINECONE_INDEX_NAME` | Pinecone index | vnrvjiet-admissions |
 | `PINECONE_ENVIRONMENT` | Pinecone region | us-east-1 |
+| `HOST` | Server bind host | — |
+| `PORT` | Public/bind port used by runtime | — |
+| `APP_PORT` | Internal app port (useful for Docker compose) | — |
 | `FIREBASE_PROJECT_ID` | Firebase project ID | — |
 | `FIREBASE_CREDENTIALS` | Path to Firebase service account JSON | — |
 | `ALLOWED_ORIGINS` | CORS origins (comma-separated) | localhost |

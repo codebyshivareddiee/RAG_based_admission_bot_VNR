@@ -2,7 +2,7 @@
 VNRVJIET Admissions Chatbot – FastAPI entry point.
 
 Run locally:
-    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    python railway_start.py
 """
 
 from __future__ import annotations
