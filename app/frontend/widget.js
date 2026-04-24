@@ -40,6 +40,9 @@
   // STT state
   let recognition = null;
   let isListening = false;
+  let lastTranscript = "";
+  let sttCommittedTranscript = "";
+  let availableVoices = [];
   
   // Language preference - check if user has explicitly selected a language
   let currentLanguage = sessionStorage.getItem("chatbot_language") || "en";
@@ -55,6 +58,7 @@
   
   // Chat history is preserved in this session for context-aware responses
   // The backend automatically uses conversation history for better answers
+  const chatHistory = [];
 
   // ── Language Support ─────────────────────────────────────────
   const SUPPORTED_LANGUAGES = {
@@ -215,23 +219,142 @@
     // ── Fee guided-flow translations ───────────────────────────
     fees_sub_prompt: {
       en: "What would you like to know?",
+      hi: "आप क्या जानना चाहते हैं?",
+      te: "మీరు ఏమి తెలుసుకోవాలనుకుంటున్నారు?",
+      ta: "நீங்கள் என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?",
+      mr: "तुम्हाला काय जाणून घ्यायचे आहे?",
+      kn: "ನೀವು ಏನು ತಿಳಿದುಕೊಳ್ಳಲು ಬಯಸುತ್ತೀರಿ?",
     },
     fees_type_structure: {
       en: "Fee Structure",
+      hi: "शुल्क संरचना",
+      te: "ఫీజు నిర్మాణం",
+      ta: "கட்டண அமைப்பு",
+      mr: "फी रचना",
+      kn: "ಶುಲ್ಕ ರಚನೆ",
     },
     fees_type_scholarships: {
       en: "Scholarships",
+      hi: "छात्रवृत्तियां",
+      te: "స్కాలర్‌షిప్‌లు",
+      ta: "உதவித்தொகைகள்",
+      mr: "शिष्यवृत्ती",
+      kn: "ವಿದ್ಯಾರ್ಥಿವೇತನಗಳು",
     },
     fees_query_structure: {
       en: "What is the {program} fee structure at VNRVJIET?",
+      hi: "VNRVJIET में {program} की शुल्क संरचना क्या है?",
+      te: "VNRVJIET లో {program} ఫీజు నిర్మాణం ఏమిటి?",
+      ta: "VNRVJIET இல் {program} கட்டண அமைப்பு என்ன?",
+      mr: "VNRVJIET मध्ये {program} ची फी रचना काय आहे?",
+      kn: "VNRVJIET ನಲ್ಲಿ {program} ಶುಲ್ಕ ರಚನೆ ಏನು?",
     },
     fees_query_scholarships: {
       en: "What scholarships are available for {program} at VNRVJIET?",
+      hi: "VNRVJIET में {program} के लिए कौन सी छात्रवृत्तियां उपलब्ध हैं?",
+      te: "VNRVJIET లో {program} కోసం ఏ స్కాలర్‌షిప్‌లు అందుబాటులో ఉన్నాయి?",
+      ta: "VNRVJIET இல் {program}க்கு எந்த உதவித்தொகைகள் கிடைக்கின்றன?",
+      mr: "VNRVJIET मध्ये {program} साठी कोणत्या शिष्यवृत्ती उपलब्ध आहेत?",
+      kn: "VNRVJIET ನಲ್ಲಿ {program}ಗಾಗಿ ಯಾವ ವಿದ್ಯಾರ್ಥಿವೇತನಗಳು ಲಭ್ಯವಿವೆ?",
+    },
+    type_question_prompt: {
+      en: "Please type your question:",
+      hi: "कृपया अपना प्रश्न टाइप करें:",
+      te: "దయచేసి మీ ప్రశ్నను టైప్ చేయండి:",
+      ta: "தயவுசெய்து உங்கள் கேள்வியை டைப் செய்யவும்:",
+      mr: "कृपया तुमचा प्रश्न टाइप करा:",
+      kn: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ:",
+    },
+    tts_listen: {
+      en: "Listen",
+      hi: "सुनें",
+      te: "వినండి",
+      ta: "கேளுங்கள்",
+      mr: "ऐका",
+      kn: "ಆಲಿಸಿ",
+    },
+    tts_stop: {
+      en: "Stop",
+      hi: "रोकें",
+      te: "ఆపండి",
+      ta: "நிறுத்து",
+      mr: "थांबवा",
+      kn: "ನಿಲ್ಲಿಸಿ",
+    },
+    tts_aria_listen: {
+      en: "Listen to response",
+      hi: "उत्तर सुनें",
+      te: "సమాధానం వినండి",
+      ta: "பதிலை கேளுங்கள்",
+      mr: "उत्तर ऐका",
+      kn: "ಉತ್ತರವನ್ನು ಆಲಿಸಿ",
+    },
+    tts_not_supported: {
+      en: "Text-to-speech is not supported in your browser",
+      hi: "आपके ब्राउज़र में टेक्स्ट-टू-स्पीच उपलब्ध नहीं है",
+      te: "మీ బ్రౌజర్‌లో టెక్స్ట్-టు-స్పీచ్ అందుబాటులో లేదు",
+      ta: "உங்கள் உலாவியில் உரை-ஒலி வசதி இல்லை",
+      mr: "तुमच्या ब्राउझरमध्ये टेक्स्ट-टू-स्पीच उपलब्ध नाही",
+      kn: "ನಿಮ್ಮ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಟೆಕ್ಸ್ಟ್-ಟು-ಸ್ಪೀಚ್ ಲಭ್ಯವಿಲ್ಲ",
+    },
+    stt_listening: {
+      en: "Listening...",
+      hi: "सुन रहा हूं...",
+      te: "వింటున్నాను...",
+      ta: "கேட்கிறேன்...",
+      mr: "ऐकत आहे...",
+      kn: "ಆಲಿಸುತ್ತಿದ್ದೇನೆ...",
+    },
+    stt_listening_more: {
+      en: "Listening... You can continue speaking.",
+      hi: "सुन रहा हूं... आप बोलना जारी रख सकते हैं।",
+      te: "వింటున్నాను... మీరు మాట్లాడటం కొనసాగించవచ్చు.",
+      ta: "கேட்கிறேன்... நீங்கள் தொடர்ந்து பேசலாம்.",
+      mr: "ऐकत आहे... तुम्ही बोलणे सुरू ठेवू शकता.",
+      kn: "ಆಲಿಸುತ್ತಿದ್ದೇನೆ... ನೀವು ಮುಂದುವರಿದು ಮಾತನಾಡಬಹುದು.",
+    },
+    stt_error_start: {
+      en: "Failed to start microphone. Please try again.",
+      hi: "माइक्रोफोन शुरू नहीं हो सका। कृपया फिर से प्रयास करें।",
+      te: "మైక్రోఫోన్ ప్రారంభం కాలేదు. దయచేసి మళ్లీ ప్రయత్నించండి.",
+      ta: "மைக்ரோஃபோனை தொடங்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+      mr: "मायक्रोफोन सुरू होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.",
+      kn: "ಮೈಕ್ರೊಫೋನ್ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    },
+    stt_not_supported: {
+      en: "Speech recognition is not supported in your browser",
+      hi: "आपके ब्राउज़र में वॉइस पहचान उपलब्ध नहीं है",
+      te: "మీ బ్రౌజర్‌లో వాయిస్ గుర్తింపు అందుబాటులో లేదు",
+      ta: "உங்கள் உலாவியில் குரல் அறிதல் வசதி இல்லை",
+      mr: "तुमच्या ब्राउझरमध्ये आवाज ओळख उपलब्ध नाही",
+      kn: "ನಿಮ್ಮ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಧ್ವನಿ ಗುರುತింపు ಲಭ್ಯವಿಲ್ಲ",
     },
   };
 
   function t(key) {
     return TRANSLATIONS[key]?.[currentLanguage] || TRANSLATIONS[key]?.en || key;
+  }
+
+  function ttsButtonLabel(isPlaying) {
+    return isPlaying ? t("tts_stop") : t("tts_listen");
+  }
+
+  function setTTSButtonVisualState(buttonElement, isPlaying) {
+    if (!buttonElement) return;
+    const icon = isPlaying ? "⏸" : "🔊";
+    buttonElement.innerHTML = `<span class="tts-icon">${icon}</span> ${ttsButtonLabel(isPlaying)}`;
+    buttonElement.setAttribute("aria-label", t("tts_aria_listen"));
+  }
+
+  function refreshTTSButtonsForLanguage() {
+    try {
+      document.querySelectorAll(".tts-button").forEach((btn) => {
+        const isPlaying = btn.classList.contains("playing");
+        setTTSButtonVisualState(btn, isPlaying);
+      });
+    } catch (error) {
+      console.error("Error refreshing TTS button labels:", error);
+    }
   }
 
   function setLanguage(lang) {
@@ -246,11 +369,274 @@
       if (inputEl) {
         inputEl.placeholder = t("input_placeholder");
       }
+      refreshTTSButtonsForLanguage();
       
       console.log("Language set successfully:", lang);
     } else {
       console.error("Unsupported language:", lang);
     }
+  }
+
+  // ── Speech normalization helpers ──────────────────────────────
+  const EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu;
+  const SPEECH_REPLACEMENTS = {
+    hi: [
+      [/\bb\.?\s*tech\b/gi, "बी टेक"],
+      [/\bm\.?\s*tech\b/gi, "एम टेक"],
+      [/\bm\.?\s*b\.?\s*a\b|\bmba\b/gi, "एम बी ए"],
+      [/\bm\.?\s*c\.?\s*a\b|\bmca\b/gi, "एम सी ए"],
+      [/\bcse\b/gi, "सी एस ई"],
+      [/\bece\b/gi, "ई सी ई"],
+      [/\beee\b/gi, "ई ई ई"],
+      [/\bit\b/gi, "आई टी"],
+    ],
+    te: [
+      [/\bb\.?\s*tech\b/gi, "బి టెక్"],
+      [/\bm\.?\s*tech\b/gi, "ఎం టెక్"],
+      [/\bm\.?\s*b\.?\s*a\b|\bmba\b/gi, "ఎం బి ఏ"],
+      [/\bm\.?\s*c\.?\s*a\b|\bmca\b/gi, "ఎం సి ఏ"],
+    ],
+    mr: [
+      [/\bb\.?\s*tech\b/gi, "बी टेक"],
+      [/\bm\.?\s*tech\b/gi, "एम टेक"],
+      [/\bm\.?\s*b\.?\s*a\b|\bmba\b/gi, "एम बी ए"],
+      [/\bm\.?\s*c\.?\s*a\b|\bmca\b/gi, "एम सी ए"],
+    ],
+  };
+
+  function normalizeSpeechText(text, language) {
+    let normalized = (text || "");
+    normalized = normalized
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+      .replace(/https?:\/\/[^\s)]+/gi, " ")
+      .replace(/www\.[^\s)]+/gi, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/#{1,6}\s*/g, "")
+      .replace(/[•●▪◦]/g, ". ")
+      .replace(/^\s*\d+\.\s+/gm, "")
+      .replace(/[→⇒]/g, " ")
+      .replace(EMOJI_PATTERN, " ")
+      .replace(/\n+/g, ". ");
+
+    const languageRules = SPEECH_REPLACEMENTS[language] || [];
+    for (const [pattern, replacement] of languageRules) {
+      normalized = normalized.replace(pattern, replacement);
+    }
+
+    return normalized.replace(/\s+/g, " ").trim();
+  }
+
+  const TTS_LANG_TO_LOCALES = {
+    en: ["en-IN", "en-US", "en-GB"],
+    hi: ["hi-IN", "hi"],
+    te: ["te-IN", "te"],
+    ta: ["ta-IN", "ta"],
+    kn: ["kn-IN", "kn"],
+    ml: ["ml-IN", "ml"],
+    mr: ["mr-IN", "mr"],
+    bn: ["bn-IN", "bn-BD", "bn"],
+    gu: ["gu-IN", "gu"],
+    pa: ["pa-IN", "pa"],
+    or: ["or-IN", "or"],
+    ur: ["ur-IN", "ur-PK", "ur"],
+  };
+
+  const TTS_NEIGHBOR_LANGUAGE_FALLBACK = {
+    ml: ["ta", "kn", "te"],
+    ta: ["ml", "te", "kn"],
+    te: ["kn", "ta", "ml"],
+    kn: ["te", "ta", "ml"],
+    bn: ["hi", "mr"],
+    gu: ["hi", "mr"],
+    pa: ["hi"],
+    mr: ["hi"],
+    hi: ["mr", "bn", "gu", "pa"],
+  };
+
+  function getBrowserLanguageCode() {
+    const navLang = (navigator.language || "en").toLowerCase();
+    return navLang.split("-")[0] || "en";
+  }
+
+  function detectLanguageFromText(text) {
+    if (!text || text.length === 0) {
+      return currentLanguage || getBrowserLanguageCode();
+    }
+
+    const sample = text.slice(0, 400);
+    const counts = {
+      devanagari: 0,
+      telugu: 0,
+      tamil: 0,
+      kannada: 0,
+      malayalam: 0,
+      bengali: 0,
+      gujarati: 0,
+      gurmukhi: 0,
+      odia: 0,
+      latin: 0,
+    };
+
+    for (const char of sample) {
+      const code = char.charCodeAt(0);
+
+      if (code >= 0x0900 && code <= 0x097F) counts.devanagari++;
+      else if (code >= 0x0C00 && code <= 0x0C7F) counts.telugu++;
+      else if (code >= 0x0B80 && code <= 0x0BFF) counts.tamil++;
+      else if (code >= 0x0C80 && code <= 0x0CFF) counts.kannada++;
+      else if (code >= 0x0D00 && code <= 0x0D7F) counts.malayalam++;
+      else if (code >= 0x0980 && code <= 0x09FF) counts.bengali++;
+      else if (code >= 0x0A80 && code <= 0x0AFF) counts.gujarati++;
+      else if (code >= 0x0A00 && code <= 0x0A7F) counts.gurmukhi++;
+      else if (code >= 0x0B00 && code <= 0x0B7F) counts.odia++;
+      else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) counts.latin++;
+    }
+
+    const maxCount = Math.max(...Object.values(counts));
+    const threshold = Math.max(2, sample.length * 0.12);
+
+    if (maxCount >= threshold) {
+      if (counts.telugu === maxCount) return "te";
+      if (counts.tamil === maxCount) return "ta";
+      if (counts.kannada === maxCount) return "kn";
+      if (counts.malayalam === maxCount) return "ml";
+      if (counts.bengali === maxCount) return "bn";
+      if (counts.gujarati === maxCount) return "gu";
+      if (counts.gurmukhi === maxCount) return "pa";
+      if (counts.odia === maxCount) return "or";
+      if (counts.devanagari === maxCount) {
+        if (currentLanguage === "mr") return "mr";
+        return "hi";
+      }
+      if (counts.latin === maxCount) return "en";
+    }
+
+    return currentLanguage || getBrowserLanguageCode();
+  }
+
+  function updateAvailableVoices() {
+    if (!window.speechSynthesis) return [];
+    availableVoices = window.speechSynthesis.getVoices() || [];
+    return availableVoices;
+  }
+
+  function getVoiceForLang(langCode) {
+    const normalizedLang = (langCode || "").toLowerCase();
+    const allVoices = availableVoices.length ? availableVoices : updateAvailableVoices();
+    if (!allVoices.length) return null;
+
+    const localeCandidates = TTS_LANG_TO_LOCALES[normalizedLang] || [`${normalizedLang}`];
+    const normalizedVoiceEntries = allVoices.map((voice) => ({
+      voice,
+      voiceLang: (voice.lang || "").toLowerCase(),
+      voiceName: (voice.name || "").toLowerCase(),
+    }));
+
+    // 1) Exact locale startsWith (e.g., te-IN)
+    for (const locale of localeCandidates) {
+      const localeLower = locale.toLowerCase();
+      const found = normalizedVoiceEntries.find((entry) => entry.voiceLang === localeLower);
+      if (found) return found.voice;
+    }
+
+    // 2) Prefix language match (e.g., te)
+    const prefix = normalizedLang || localeCandidates[0].split("-")[0];
+    const prefixMatch = normalizedVoiceEntries.find((entry) => entry.voiceLang.startsWith(prefix));
+    if (prefixMatch) return prefixMatch.voice;
+
+    // 3) Closest language family / neighbor language fallback
+    const neighbors = TTS_NEIGHBOR_LANGUAGE_FALLBACK[normalizedLang] || [];
+    for (const neighbor of neighbors) {
+      const candidate = normalizedVoiceEntries.find((entry) => entry.voiceLang.startsWith(neighbor));
+      if (candidate) return candidate.voice;
+    }
+
+    // 4) Voice name hint fallback (if lang tag is inconsistent)
+    const languageNameHints = {
+      te: ["telugu", "తెలుగు"],
+      ta: ["tamil", "தமிழ்"],
+      kn: ["kannada", "ಕನ್ನಡ"],
+      ml: ["malayalam", "മലയാളം"],
+      hi: ["hindi", "हिन्दी"],
+      mr: ["marathi", "मराठी"],
+      bn: ["bengali", "bangla", "বাংলা"],
+      gu: ["gujarati", "ગુજરાતી"],
+      pa: ["punjabi", "gurmukhi", "ਪੰਜਾਬੀ"],
+      en: ["english"],
+    };
+    const hints = languageNameHints[normalizedLang] || [];
+    for (const hint of hints) {
+      const byName = normalizedVoiceEntries.find((entry) => entry.voiceName.includes(hint));
+      if (byName) return byName.voice;
+    }
+
+    // 5) English fallback (voice only; text language stays unchanged)
+    const englishFallback = normalizedVoiceEntries.find((entry) => entry.voiceLang.startsWith("en"));
+    if (englishFallback) return englishFallback.voice;
+
+    // 6) Browser default / first voice
+    return allVoices.find((voice) => voice.default) || allVoices[0] || null;
+  }
+
+  function removeConsecutiveDuplicateWords(text) {
+    const tokens = (text || "").match(/[\p{L}\p{N}]+|[^\s]/gu) || [];
+    const deduped = [];
+
+    tokens.forEach((token) => {
+      if (deduped.length === 0) {
+        deduped.push(token);
+        return;
+      }
+
+      const prev = deduped[deduped.length - 1];
+      const isWord = /[\p{L}\p{N}]/u.test(token);
+      const prevIsWord = /[\p{L}\p{N}]/u.test(prev);
+      if (isWord && prevIsWord && token.toLowerCase() === prev.toLowerCase()) {
+        return;
+      }
+
+      deduped.push(token);
+    });
+
+    return deduped
+      .join(" ")
+      .replace(/\s+([,.;:!?])/g, "$1")
+      .replace(/([([{])\s+/g, "$1")
+      .replace(/\s+([)\]}])/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeUserInput(text) {
+    return removeConsecutiveDuplicateWords((text || "").replace(/\s+/g, " ").trim());
+  }
+
+  function mergeUniqueTranscript(existingText, newText) {
+    const base = normalizeUserInput(existingText || "");
+    const incoming = normalizeUserInput(newText || "");
+
+    if (!incoming) return base;
+    if (!base) return incoming;
+
+    const baseTokens = base.split(/\s+/);
+    const incomingTokens = incoming.split(/\s+/);
+    const maxOverlap = Math.min(baseTokens.length, incomingTokens.length, 20);
+
+    let overlap = 0;
+    for (let size = maxOverlap; size > 0; size--) {
+      const baseSlice = baseTokens.slice(-size).map((w) => w.toLowerCase()).join(" ");
+      const incomingSlice = incomingTokens.slice(0, size).map((w) => w.toLowerCase()).join(" ");
+      if (baseSlice === incomingSlice) {
+        overlap = size;
+        break;
+      }
+    }
+
+    const mergedTokens = [...baseTokens, ...incomingTokens.slice(overlap)];
+    return normalizeUserInput(mergedTokens.join(" "));
   }
   
   // Chat history is preserved in this session for context-aware responses
@@ -537,13 +923,12 @@
   function createTTSButton(text) {
     const ttsBtn = document.createElement("button");
     ttsBtn.className = "tts-button";
-    ttsBtn.setAttribute("aria-label", "Listen to response");
-    ttsBtn.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+    setTTSButtonVisualState(ttsBtn, false);
     
     // Check if browser supports Speech Synthesis
     if (!('speechSynthesis' in window)) {
       ttsBtn.disabled = true;
-      ttsBtn.title = "Text-to-speech not supported in your browser";
+      ttsBtn.title = t("tts_not_supported");
       return ttsBtn;
     }
     
@@ -564,14 +949,10 @@
         // Stop current speech
         stopSpeech();
       } else {
-        // Stop any other speech first
+        // Stop any other speech first, then speak immediately so browser
+        // still treats this as a direct user gesture.
         stopSpeech();
-        
-        // Small delay to ensure previous speech is fully stopped
-        setTimeout(() => {
-          // Start new speech
-          speakText(text, ttsBtn);
-        }, 100);
+        speakText(text, ttsBtn);
       }
     });
     
@@ -579,7 +960,7 @@
   }
   
   /**
-   * Convert text to speech with improved error handling and dynamic language detection
+   * Convert text to speech with improved error handling and speech-safe normalization.
    */
   function speakText(text, buttonElement) {
     try {
@@ -594,15 +975,8 @@
         window.speechSynthesis.cancel();
       }
       
-      // Clean markdown and HTML from text
-      let cleanText = text
-        .replace(/<[^>]*>/g, '') // Remove HTML tags
-        .replace(/\*\*/g, '') // Remove bold markdown
-        .replace(/\*/g, '') // Remove italic markdown
-        .replace(/`/g, '') // Remove code markdown
-        .replace(/#{1,6}\s/g, '') // Remove heading markers
-        .replace(/\n+/g, '. ') // Replace line breaks with pauses
-        .trim();
+      // Normalize response text into a voice-friendly format.
+      let cleanText = normalizeSpeechText(text, currentLanguage);
       
       // Validate text
       if (!cleanText || cleanText.length === 0) {
@@ -617,69 +991,39 @@
       
       const utterance = new SpeechSynthesisUtterance(cleanText);
       
-      // ALWAYS use the user's selected language (currentLanguage)
-      // This is more reliable than auto-detection
-      const langMap = {
-        'en': 'en-US',
-        'hi': 'hi-IN',
-        'te': 'te-IN',
-        'ta': 'ta-IN',
-        'mr': 'mr-IN',
-        'kn': 'kn-IN'
-      };
-      
-      const targetLang = langMap[currentLanguage] || 'en-US';
+      // Detect language dynamically from response text first.
+      const detectedLang = detectLanguageFromText(cleanText);
+      const localeCandidates = TTS_LANG_TO_LOCALES[detectedLang] || [];
+      const targetLang = localeCandidates[0] || `${detectedLang || "en"}`;
       utterance.lang = targetLang;
       
       console.log("🔊 TTS Details:");
-      console.log("  - Selected Language:", currentLanguage);
-      console.log("  - Target Voice Lang:", targetLang);
+      console.log("  - UI Language:", currentLanguage);
+      console.log("  - Detected Text Language:", detectedLang);
+      console.log("  - Preferred Utterance Lang:", targetLang);
       console.log("  - Text Preview:", cleanText.substring(0, 50) + "...");
       
-      // Get available voices and try to use the best match
-      const voices = window.speechSynthesis.getVoices();
+      // Get available voices and try to use dynamic language selection.
+      const voices = updateAvailableVoices();
       console.log("  - Available voices:", voices.length);
       
-      // Find best matching voice for the language
-      let matchingVoice = null;
-      
-      // First try: exact lang match (e.g., "te-IN")
-      matchingVoice = voices.find(voice => voice.lang === targetLang);
-      
-      // Second try: language prefix match (e.g., "te")
-      if (!matchingVoice) {
-        const langPrefix = targetLang.split('-')[0];
-        matchingVoice = voices.find(voice => voice.lang.startsWith(langPrefix));
-      }
-      
-      // Third try: any voice with the language name
-      if (!matchingVoice) {
-        const langNames = {
-          'te-IN': ['telugu', 'తెలుగు'],
-          'hi-IN': ['hindi', 'हिन्दी'],
-          'ta-IN': ['tamil', 'தமிழ்'],
-          'kn-IN': ['kannada', 'ಕನ್ನಡ'],
-          'mr-IN': ['marathi', 'मराठी'],
-          'en-US': ['english']
-        };
-        
-        const names = langNames[targetLang] || [];
-        for (const name of names) {
-          matchingVoice = voices.find(voice => 
-            voice.name.toLowerCase().includes(name.toLowerCase()) ||
-            voice.lang.toLowerCase().includes(name.toLowerCase())
-          );
-          if (matchingVoice) break;
-        }
-      }
+      const matchingVoice = getVoiceForLang(detectedLang);
       
       if (matchingVoice) {
         utterance.voice = matchingVoice;
+        utterance.lang = matchingVoice.lang || targetLang;
         console.log("  - Using voice:", matchingVoice.name, "(" + matchingVoice.lang + ")");
       } else {
         console.warn("  - ⚠️ No matching voice found for", targetLang);
         console.warn("  - Available voice languages:", voices.map(v => v.lang).join(", "));
-        console.warn("  - Will use default voice (may not be correct)");
+        const fallbackVoice = voices.find((voice) => voice.default) || voices[0];
+        if (fallbackVoice) {
+          utterance.voice = fallbackVoice;
+          utterance.lang = fallbackVoice.lang || "en-US";
+          console.log("  - Using fallback voice:", fallbackVoice.name, "(" + fallbackVoice.lang + ")");
+        } else {
+          console.warn("  - No voice list available yet, browser default will be used");
+        }
       }
       
       // Speech settings
@@ -693,7 +1037,7 @@
         isSpeaking = true;
         if (buttonElement) {
           buttonElement.classList.add("playing");
-          buttonElement.innerHTML = '<span class="tts-icon">⏸</span> Stop';
+          setTTSButtonVisualState(buttonElement, true);
         }
       };
       
@@ -736,6 +1080,8 @@
       
       // Try to speak with error handling
       try {
+        // Some browsers can get stuck in paused state; resume before speaking.
+        window.speechSynthesis.resume();
         window.speechSynthesis.speak(utterance);
         
         // Fallback: If speech doesn't start within 1 second, reset
@@ -758,83 +1104,6 @@
   }
   
   /**
-   * Detect language from text content using Unicode ranges
-   * NOTE: Currently not used - using currentLanguage instead for reliability
-   */
-  function detectLanguageFromText(text) {
-    if (!text || text.length === 0) return null;
-    
-    // Get first 200 characters for detection (enough to determine language)
-    const sample = text.substring(0, 200);
-    
-    // Count characters from different scripts
-    let counts = {
-      devanagari: 0,  // Hindi, Marathi
-      telugu: 0,
-      tamil: 0,
-      kannada: 0,
-      latin: 0        // English
-    };
-    
-    for (let char of sample) {
-      const code = char.charCodeAt(0);
-      
-      // Devanagari (Hindi, Marathi): U+0900 to U+097F
-      if (code >= 0x0900 && code <= 0x097F) {
-        counts.devanagari++;
-      }
-      // Telugu: U+0C00 to U+0C7F
-      else if (code >= 0x0C00 && code <= 0x0C7F) {
-        counts.telugu++;
-      }
-      // Tamil: U+0B80 to U+0BFF
-      else if (code >= 0x0B80 && code <= 0x0BFF) {
-        counts.tamil++;
-      }
-      // Kannada: U+0C80 to U+0CFF
-      else if (code >= 0x0C80 && code <= 0x0CFF) {
-        counts.kannada++;
-      }
-      // Latin (English): U+0041 to U+007A
-      else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) {
-        counts.latin++;
-      }
-    }
-    
-    // Determine dominant script
-    const maxCount = Math.max(...Object.values(counts));
-    
-    // Need at least 20% of characters to be from a script to detect it
-    const threshold = sample.length * 0.2;
-    
-    if (maxCount < threshold) {
-      // Not enough script characters, use current language
-      return currentLanguage;
-    }
-    
-    // Find which script has the most characters
-    if (counts.telugu === maxCount && counts.telugu >= threshold) {
-      return 'te';
-    } else if (counts.tamil === maxCount && counts.tamil >= threshold) {
-      return 'ta';
-    } else if (counts.kannada === maxCount && counts.kannada >= threshold) {
-      return 'kn';
-    } else if (counts.devanagari === maxCount && counts.devanagari >= threshold) {
-      // Could be Hindi or Marathi - check current language preference
-      if (currentLanguage === 'mr') {
-        return 'mr';
-      } else {
-        return 'hi';
-      }
-    } else if (counts.latin === maxCount) {
-      return 'en';
-    }
-    
-    // Fallback to current language
-    return currentLanguage;
-  }
-  
-  /**
    * Reset speech state and button UI
    */
   function resetSpeechState(buttonElement) {
@@ -843,14 +1112,14 @@
     
     if (buttonElement && buttonElement.classList) {
       buttonElement.classList.remove("playing");
-      buttonElement.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+      setTTSButtonVisualState(buttonElement, false);
     }
     
     // Reset all TTS buttons as safety measure
     try {
       document.querySelectorAll('.tts-button.playing').forEach(btn => {
         btn.classList.remove('playing');
-        btn.innerHTML = '<span class="tts-icon">🔊</span> Listen';
+        setTTSButtonVisualState(btn, false);
       });
     } catch (error) {
       console.error("Error resetting buttons:", error);
@@ -871,17 +1140,8 @@
       if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
         window.speechSynthesis.cancel();
       }
-      
-      // Wait a moment for cancel to complete
-      setTimeout(() => {
-        // Double-check and cancel again if needed
-        if (window.speechSynthesis.speaking) {
-          window.speechSynthesis.cancel();
-        }
-        
-        // Reset state
-        resetSpeechState(null);
-      }, 50);
+      // Reset state immediately so next click can start speech reliably.
+      resetSpeechState(null);
       
     } catch (error) {
       console.error("Error stopping speech:", error);
@@ -929,7 +1189,7 @@
       console.warn("🎤 Speech Recognition not supported in this browser");
       if (micBtn) {
         micBtn.disabled = true;
-        micBtn.title = "Speech recognition not supported in your browser";
+        micBtn.title = t("stt_not_supported");
       }
       return;
     }
@@ -997,29 +1257,30 @@
       // Update input field with results
       if (inputEl) {
         if (finalTranscript) {
-          // Final result - append to existing text or replace
-          const currentValue = inputEl.value.replace(/\s*$/, ''); // Remove trailing spaces
-          const newValue = currentValue ? currentValue + ' ' + finalTranscript : finalTranscript;
-          inputEl.value = newValue.trim();
+          const normalizedFinal = normalizeUserInput(finalTranscript);
+          if (normalizedFinal && normalizedFinal !== lastTranscript) {
+            sttCommittedTranscript = mergeUniqueTranscript(sttCommittedTranscript, normalizedFinal);
+            inputEl.value = sttCommittedTranscript;
+            lastTranscript = normalizedFinal;
+          }
           
           // Clear interim styling
           inputEl.style.fontStyle = '';
           inputEl.style.opacity = '';
           
           // Continue listening for more speech
-          showListeningStatus("Listening... (say more or wait to stop)");
+          showListeningStatus(t("stt_listening_more"));
           
         } else if (interimTranscript) {
           // Show interim results with visual indication
-          const currentValue = inputEl.value.replace(/\s*$/, ''); // Remove trailing spaces
-          const displayValue = currentValue ? currentValue + ' ' + interimTranscript : interimTranscript;
-          inputEl.value = displayValue;
+          const interimValue = mergeUniqueTranscript(sttCommittedTranscript, interimTranscript);
+          inputEl.value = interimValue;
           
           // Style interim text
           inputEl.style.fontStyle = 'italic';
           inputEl.style.opacity = '0.8';
           
-          showListeningStatus("Listening...");
+          showListeningStatus(t("stt_listening"));
         }
       }
     };
@@ -1130,6 +1391,8 @@
     // Configure for continuous listening
     recognition.continuous = true;
     recognition.interimResults = true;
+    sttCommittedTranscript = normalizeUserInput(inputEl?.value || "");
+    lastTranscript = "";
     
     console.log("🎤 Configuration set - continuous:", recognition.continuous, ", interimResults:", recognition.interimResults);
     
@@ -1160,7 +1423,7 @@
         } catch (e) {
           console.error("🎤 Retry failed:", e);
           updateListeningUI(false);
-          showListeningStatus("❌ Failed to start microphone. Please try again.");
+          showListeningStatus(`❌ ${t("stt_error_start")}`);
         }
       }, 100);
     }
@@ -1179,6 +1442,11 @@
     recognition.stop();
     updateListeningUI(false);
     clearAutoStopTimer();
+    lastTranscript = "";
+    if (inputEl) {
+      sttCommittedTranscript = normalizeUserInput(inputEl.value || "");
+      inputEl.value = sttCommittedTranscript;
+    }
     console.log("🎤 Speech recognition stopped");
   }
   
@@ -1232,7 +1500,7 @@
       inputEl.classList.add('listening');
       
       // Show listening text
-      showListeningStatus("Listening...");
+      showListeningStatus(t("stt_listening"));
       
       isListening = true;
     } else {
@@ -1301,6 +1569,7 @@
 
     sessionId = generateId();
     sessionStorage.setItem("chatbot_session", sessionId);
+    chatHistory.length = 0;
     
     // Clear visual messages
     messagesEl.innerHTML = "";
@@ -1371,10 +1640,7 @@
       // User will type their own question
       showInputArea();
       inputEl.focus();
-      // Optionally show a prompt
-      if (currentLanguage !== "en") {
-        addBotMessage("Please type your question:");
-      }
+      addBotMessage(t("type_question_prompt"));
     });
     grid.appendChild(othersBtn);
 
@@ -1579,11 +1845,18 @@
         // Show friendly user text for back-action while preserving backend token.
         if (opt.value === guidedBackOptionValue) {
           addUserMessage("Back");
-          sendMessage(opt.value, true);
+          sendMessage(opt.value, true, {
+            selectedOptionLabel: opt.label,
+            selectedOptionValue: opt.value,
+          });
           return;
         }
-        // Send the value automatically
-        sendMessage(opt.value);
+
+        // Send the internal value plus visible label so backend can preserve display-language context.
+        sendMessage(opt.value, false, {
+          selectedOptionLabel: opt.label,
+          selectedOptionValue: opt.value,
+        });
       });
 
       optionsContainer.appendChild(btn);
@@ -1723,10 +1996,11 @@
 
   // ── API Communication ────────────────────────────────────────
 
-  async function sendMessage(text, skipAddingUserMessage = false) {
+  async function sendMessage(text, skipAddingUserMessage = false, optionMeta = null) {
     if (!text || !text.trim() || isSending) return;
 
-    const userText = text.trim();
+    const userText = normalizeUserInput(text);
+    if (!userText) return;
     
     // Only add user message if not already added (prevents duplicates)
     if (!skipAddingUserMessage) {
@@ -1741,6 +2015,8 @@
     showTyping();
 
     try {
+      chatHistory.push({ role: "user", content: userText });
+
       // Use streaming endpoint for ChatGPT-style typing effect
       const response = await fetch(`${API_BASE}/api/chat/stream`, {
         method: "POST",
@@ -1749,6 +2025,10 @@
           message: userText,
           session_id: sessionId,
           language: currentLanguage,
+          force_language: languageSelected === true && !!optionMeta,
+          selected_option_label: optionMeta?.selectedOptionLabel || null,
+          selected_option_value: optionMeta?.selectedOptionValue || null,
+          chat_history: chatHistory,
         }),
       });
 
@@ -1859,6 +2139,12 @@
                 if (data.intent) {
                   intent = data.intent;
                 }
+                if (data.metadata && data.metadata.language && SUPPORTED_LANGUAGES[data.metadata.language]) {
+                  // Keep TTS/STT language aligned with backend-resolved response language.
+                  if (currentLanguage !== data.metadata.language) {
+                    setLanguage(data.metadata.language);
+                  }
+                }
                 if (data.options && Array.isArray(data.options)) {
                   options = data.options;
                 }
@@ -1885,6 +2171,10 @@
       // Render clickable options if available
       if (options && options.length > 0) {
         renderClickableOptions(options, bubble);
+      }
+
+      if (fullReply && fullReply.trim()) {
+        chatHistory.push({ role: "assistant", content: fullReply.trim() });
       }
 
     } catch (err) {
@@ -1996,34 +2286,24 @@
   }
   
   // ── Initialize Speech Synthesis Voices ───────────────────────
-  // Load voices on page load (some browsers need this)
+  // Load all voices on page load (some browsers load lazily)
   if (window.speechSynthesis) {
-    // Load voices immediately
-    window.speechSynthesis.getVoices();
-    
-    // Also listen for voiceschanged event (Chrome needs this)
-    window.speechSynthesis.addEventListener('voiceschanged', () => {
-      const voices = window.speechSynthesis.getVoices();
-      console.log("🔊 Voices loaded:", voices.length);
-      
-      // Log available Indian language voices for debugging
-      const indianVoices = voices.filter(v => 
-        v.lang.includes('IN') || 
-        v.lang.startsWith('hi') || 
-        v.lang.startsWith('te') || 
-        v.lang.startsWith('ta') || 
-        v.lang.startsWith('kn') || 
-        v.lang.startsWith('mr')
-      );
-      
-      if (indianVoices.length > 0) {
-        console.log("  - Indian language voices available:");
-        indianVoices.forEach(v => console.log("    •", v.name, "(" + v.lang + ")"));
-      } else {
-        console.warn("  - ⚠️ No Indian language voices found");
-        console.warn("  - Install language packs or use Chrome for best support");
+    updateAvailableVoices();
+    console.log("🔊 Initial voices loaded:", availableVoices.length);
+
+    window.speechSynthesis.onvoiceschanged = () => {
+      updateAvailableVoices();
+      console.log("🔊 Voices updated:", availableVoices.length);
+      if (availableVoices.length > 0) {
+        console.log("  - Languages available:", [...new Set(availableVoices.map((v) => v.lang))].join(", "));
       }
-    });
+    };
+
+    // Extra delayed refresh for browsers that populate voices asynchronously.
+    setTimeout(() => {
+      updateAvailableVoices();
+      console.log("🔊 Delayed voice refresh:", availableVoices.length);
+    }, 500);
   }
 
   // ── Auto-Popup on Page Load ──────────────────────────────────

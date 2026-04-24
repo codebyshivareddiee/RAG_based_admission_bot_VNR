@@ -29,7 +29,6 @@ from app.utils.languages import (
     DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
     detect_language,
-    detect_language_change_request,
     get_greeting_message,
     get_out_of_scope_message,
 )
@@ -38,6 +37,8 @@ settings = get_settings()
 
 _async_openai_client: AsyncOpenAI | None = None
 _SESSION_LANGUAGE_BY_ID: dict[str, str] = {}
+_SESSION_CONTEXT_BY_ID: dict[str, str] = {}
+_SESSION_CUTOFF_SLOT_MEMORY_BY_SESSION: dict[str, dict[str, str | int]] = {}
 
 def _get_async_openai() -> AsyncOpenAI:
     global _async_openai_client
@@ -182,15 +183,39 @@ _MISSING_CATEGORY_EXAMPLES = {
 }
 
 _RETRIEVE_NO_CONTEXT_RESPONSES = {
-    "en": "I am sorry, I do not have that information in my records. Please contact the admissions office.",
-    "hi": "क्षमा करें, मेरे रिकॉर्ड में यह जानकारी उपलब्ध नहीं है। कृपया प्रवेश कार्यालय से संपर्क करें।",
-    "te": "క్షమించండి, నా రికార్డుల్లో ఈ సమాచారం లేదు. దయచేసి ప్రవేశ కార్యాలయాన్ని సంప్రదించండి.",
-    "ta": "மன்னிக்கவும், என் பதிவுகளில் இந்த தகவல் இல்லை. தயவுசெய்து சேர்க்கை அலுவலகத்தை தொடர்புகொள்ளவும்.",
-    "mr": "माफ करा, माझ्या नोंदींमध्ये ही माहिती उपलब्ध नाही. कृपया प्रवेश कार्यालयाशी संपर्क साधा.",
-    "kn": "ಕ್ಷಮಿಸಿ, ನನ್ನ ದಾಖಲೆಗಳಲ್ಲಿ ಈ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಪ್ರವೇಶ ಕಚೇರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.",
-    "bn": "দুঃখিত, আমার রেকর্ডে এই তথ্য নেই। অনুগ্রহ করে ভর্তি দপ্তরের সাথে যোগাযোগ করুন।",
-    "gu": "માફ કરશો, મારા રેકોર્ડમાં આ માહિતી ઉપલબ્ધ નથી. કૃપા કરીને પ્રવેશ કચેરીનો સંપર્ક કરો.",
+    "en": "I'm not fully sure about that yet from my current records.",
+    "hi": "मुझे अभी अपने रिकॉर्ड से इसका पूरा भरोसेमंद उत्तर नहीं मिल रहा है।",
+    "te": "ఇప్పుడున్న నా రికార్డుల ఆధారంగా దీనిపై పూర్తి నిశ్చయంగా చెప్పలేను.",
+    "ta": "என் தற்போதைய பதிவுகளின் அடிப்படையில் இதற்கு முழுமையான உறுதியான பதிலை இப்போது சொல்ல முடியவில்லை.",
+    "mr": "माझ्या सध्याच्या नोंदींवरून याबद्दल पूर्ण खात्रीने सांगता येत नाही.",
+    "kn": "ನನ್ನ ಪ್ರಸ್ತುತ ದಾಖಲೆಗಳ ಆಧಾರದ ಮೇಲೆ ಇದಕ್ಕೆ ಈಗ ಸಂಪೂರ್ಣ ಖಚಿತ ಉತ್ತರ ನೀಡಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ.",
+    "bn": "আমার বর্তমান রেকর্ড থেকে এ বিষয়ে পুরোপুরি নিশ্চিতভাবে বলতে পারছি না।",
+    "gu": "મારા વર્તમાન રેકોર્ડના આધારે આ વિશે હમણાં સંપૂર્ણ ખાતરીથી કહી શકાતું નથી.",
 }
+
+_NO_CONTEXT_WEBSITE_GUIDANCE = {
+    "en": "You can find the latest official details here:",
+    "hi": "नवीनतम आधिकारिक जानकारी यहां मिल सकती है:",
+    "te": "తాజా అధికారిక వివరాలు ఇక్కడ చూడవచ్చు:",
+    "ta": "சமீபத்திய அதிகாரப்பூர்வ தகவல்களை இங்கே பார்க்கலாம்:",
+    "mr": "ताजी अधिकृत माहिती येथे मिळू शकते:",
+    "kn": "ಇತ್ತೀಚಿನ ಅಧಿಕೃತ ಮಾಹಿತಿಯನ್ನು ಇಲ್ಲಿ ಕಾಣಬಹುದು:",
+    "bn": "সর্বশেষ অফিসিয়াল তথ্য এখানে পাওয়া যাবে:",
+    "gu": "નવીનતમ સત્તાવાર વિગતો અહીં મળશે:",
+}
+
+_NO_CONTEXT_FOLLOWUP_QUESTIONS = {
+    "en": "If you'd like, I can still help with general guidance. Are you asking about admissions, courses, placements, or campus life?",
+    "hi": "अगर आप चाहें, तो मैं सामान्य जानकारी के साथ मदद कर सकता हूं। क्या आप admissions, courses, placements या campus life के बारे में पूछ रहे हैं?",
+    "te": "మీకు ఇష్టమైతే, సాధారణ మార్గదర్శకంతో నేను సహాయం చేయగలను. మీరు admissions, courses, placements లేదా campus life గురించి అడుగుతున్నారా?",
+    "ta": "நீங்கள் விரும்பினால், பொதுவான வழிகாட்டுதலுடன் நான் உதவ முடியும். admissions, courses, placements அல்லது campus life பற்றி கேட்கிறீர்களா?",
+    "mr": "तुम्हाला हवे असल्यास, मी सामान्य मार्गदर्शन करू शकतो. तुम्ही admissions, courses, placements की campus life बद्दल विचारत आहात का?",
+    "kn": "ನೀವು ಬಯಸಿದರೆ, ಸಾಮಾನ್ಯ ಮಾರ್ಗದರ್ಶನದೊಂದಿಗೆ ನಾನು ಸಹಾಯ ಮಾಡಬಹುದು. ನೀವು admissions, courses, placements ಅಥವಾ campus life ಬಗ್ಗೆ ಕೇಳುತ್ತಿದ್ದೀರಾ?",
+    "bn": "আপনি চাইলে, আমি সাধারণ নির্দেশনা দিয়েও সাহায্য করতে পারি। আপনি কি admissions, courses, placements নাকি campus life সম্পর্কে জানতে চাইছেন?",
+    "gu": "જો તમે ઇચ્છો તો હું સામાન્ય માર્ગદર્શન સાથે પણ મદદ કરી શકું. તમે admissions, courses, placements કે campus life વિશે પૂછો છો?",
+}
+
+_OFFICIAL_WEBSITE_URL = "https://vnrvjiet.ac.in/"
 
 _CUTOFF_ENGINE_ERROR_RESPONSES = {
     "en": "Sorry, there was an error retrieving cutoff data. Please try again or contact support.",
@@ -202,6 +227,163 @@ _CUTOFF_ENGINE_ERROR_RESPONSES = {
     "bn": "দুঃখিত, cutoff data আনতে সমস্যা হয়েছে। আবার চেষ্টা করুন বা support-এর সাথে যোগাযোগ করুন।",
     "gu": "માફ કરશો, cutoff data મેળવવામાં ભૂલ થઈ. કૃપા કરીને ફરી પ્રયાસ કરો અથવા support નો સંપર્ક કરો.",
 }
+
+_AMBIGUOUS_CONTEXT_PROMPTS = {
+    "en": "Could you clarify which program or topic you mean (for example, B.Tech fees or hostel information)?",
+    "hi": "कृपया बताएं आप किस प्रोग्राम या विषय के बारे में पूछ रहे हैं (जैसे B.Tech की फीस या हॉस्टल जानकारी)?",
+    "te": "దయచేసి మీరు ఏ ప్రోగ్రామ్ లేదా అంశం గురించి అడుగుతున్నారో స్పష్టం చేయండి (ఉదాహరణకు B.Tech ఫీజులు లేదా హాస్టల్ సమాచారం).",
+    "ta": "நீங்கள் எந்தப் பிரோகிராம் அல்லது தலைப்பைப் பற்றி கேட்கிறீர்கள் என்பதைத் தெளிவுபடுத்த முடியுமா? (உதா: B.Tech கட்டணம் அல்லது விடுதி தகவல்)",
+    "mr": "कृपया तुम्ही कोणत्या प्रोग्राम किंवा विषयाबद्दल विचारत आहात ते स्पष्ट करा (उदा. B.Tech फी किंवा वसतिगृह माहिती).",
+    "kn": "ದಯವಿಟ್ಟು ನೀವು ಯಾವ ಕಾರ್ಯಕ್ರಮ ಅಥವಾ ವಿಷಯದ ಬಗ್ಗೆ ಕೇಳುತ್ತಿದ್ದೀರಿ ಎಂದು ಸ್ಪಷ್ಟಪಡಿಸಿ (ಉದಾ., B.Tech ಶುಲ್ಕ ಅಥವಾ ವಸತಿ ಗೃಹ ಮಾಹಿತಿ).",
+    "bn": "অনুগ্রহ করে বলুন আপনি কোন প্রোগ্রাম বা বিষয় সম্পর্কে জানতে চাইছেন (যেমন B.Tech ফি বা হোস্টেল তথ্য)?",
+    "gu": "કૃપા કરીને સ્પષ્ટ કરો કે તમે કયા પ્રોગ્રામ અથવા વિષય વિશે પૂછો છો (ઉદાહરણ તરીકે B.Tech ફી અથવા હોસ્ટેલ માહિતી).",
+}
+
+_DEFAULT_LINK_LABELS = {
+    "en": "👉 Click here to know more",
+    "hi": "👉 अधिक जानने के लिए यहां क्लिक करें",
+    "te": "👉 మరింత తెలుసుకోవడానికి ఇక్కడ క్లిక్ చేయండి",
+    "ta": "👉 மேலும் அறிய இங்கே கிளிக் செய்யவும்",
+    "mr": "👉 अधिक जाणून घेण्यासाठी येथे क्लिक करा",
+    "kn": "👉 ಇನ್ನಷ್ಟು ತಿಳಿದುಕೊಳ್ಳಲು ಇಲ್ಲಿ ಕ್ಲಿಕ್ ಮಾಡಿ",
+    "bn": "👉 আরও জানতে এখানে ক্লিক করুন",
+    "gu": "👉 વધુ જાણવા અહીં ક્લિક કરો",
+}
+
+_CLUB_LINK_LABELS = {
+    "en": "👉 Explore club details",
+    "hi": "👉 क्लब की जानकारी देखें",
+    "te": "👉 క్లబ్ వివరాలు చూడండి",
+    "ta": "👉 கிளப் விவரங்களை பார்க்கவும்",
+    "mr": "👉 क्लबची माहिती पहा",
+    "kn": "👉 ಕ್ಲಬ್ ವಿವರಗಳನ್ನು ನೋಡಿ",
+    "bn": "👉 ক্লাবের তথ্য দেখুন",
+    "gu": "👉 ક્લબની માહિતી જુઓ",
+}
+
+_TRANSPORT_FEE_TRIGGER_PHRASES = (
+    "transport fee",
+    "bus fee",
+    "transportation charges",
+    "college bus fee",
+    "travel fee",
+)
+
+_TRANSPORT_FEE_INTRO_TEXT = {
+    "en": "For the transport fee structure, you can check the official documents below:",
+}
+
+_TRANSPORT_FIRST_YEAR_LABELS = {
+    "en": "BTech First Year Transport Fee",
+}
+
+_TRANSPORT_OTHER_YEARS_LABELS = {
+    "en": "BTech 2nd, 3rd & 4th Year Transport Fee",
+}
+
+_TRANSPORT_ADDITIONAL_LABELS = {
+    "en": "Transport Fee Document",
+}
+
+_TRANSPORT_CTA_TEXT = {
+    "en": "Click here to view",
+}
+
+_TRANSPORT_LINK_TEXT = {
+    "en": "Open document",
+}
+
+_TRANSPORT_FEE_OUTRO_TEXT = {
+    "en": "These links will take you directly to the detailed fee structure.",
+}
+
+_TRANSPORT_FEE_FOLLOWUP_TEXT = {
+    "en": "Do you want hostel fee details as well?",
+}
+
+_TRANSPORT_FEE_FALLBACK_TEXT = {
+    "en": "I'm not able to fetch the transport fee document right now, but you can check the official website here:",
+}
+
+_TRANSPORT_FALLBACK_WEBSITE_CTA_TEXT = {
+    "en": "Click here to know more",
+}
+
+_TRANSPORT_FEE_FALLBACK_FOLLOWUP_TEXT = {
+    "en": "Would you like me to help with approximate fee details?",
+}
+
+_SHORT_FOLLOWUP_HINTS = (
+    "fee",
+    "fees",
+    "hostel",
+    "placement",
+    "placements",
+    "scholarship",
+    "scholarships",
+    "cutoff",
+    "rank",
+    "ranks",
+    "campus",
+    "club",
+    "clubs",
+    "document",
+    "documents",
+    "eligibility",
+    "process",
+    "procedure",
+    "admission",
+    "फीस",
+    "शुल्क",
+    "हॉस्टल",
+    "छात्रावास",
+    "दस्तावेज",
+    "कटऑफ",
+    "ఫీజు",
+    "ఫీజులు",
+    "హాస్టల్",
+    "పత్రాలు",
+    "కట్",
+)
+
+_INTERROGATIVE_TOKENS = {
+    "what",
+    "how",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+    "can",
+    "could",
+    "please",
+    "tell",
+    "give",
+    "show",
+    "बताओ",
+    "बताएं",
+    "कौन",
+    "क्या",
+    "कैसे",
+    "कब",
+    "कहाँ",
+    "చెప్పు",
+    "చెప్పండి",
+    "ఏది",
+    "ఎలా",
+    "ఎప్పుడు",
+    "ఎక్కడ",
+}
+
+_RAW_URL_PATTERN = re.compile(r"(?<!\]\()(?P<url>(?:https?://|www\.)[^\s<>\]\)]+)", re.IGNORECASE)
+_MARKDOWN_URL_PATTERN = re.compile(r"\[[^\]]+\]\((?P<url>(?:https?://|www\.)[^\s\)]+)\)", re.IGNORECASE)
+_TRANSPORT_FIRST_YEAR_PATTERN = re.compile(r"\b(first|1st)\s*[- ]*year\b|\byear\s*1\b", re.IGNORECASE)
+_TRANSPORT_OTHER_YEARS_PATTERN = re.compile(
+    r"\b(2nd|second|3rd|third|4th|fourth)\b|\b2nd\s*/\s*3rd\s*/\s*4th\b|\bother\s+years?\b",
+    re.IGNORECASE,
+)
+_MAX_SESSION_CONTEXT_CHARS = 700
+_MAX_HISTORY_TURNS_FOR_CONTEXT = 12
 
 _RAG_ERROR_RESPONSES = {
     "en": "I apologize, but I'm having trouble finding information about that. Please try rephrasing your question or contact our admissions office.",
@@ -267,10 +449,10 @@ _DOCUMENT_PROGRAM_DETAILS = {
         "canonical_label": "MBA / MCA",
         "labels": {
             "en": "MBA / MCA",
-            "hi": "एम.बी.ए / एम.सी.ए",
-            "te": "ఎం.బి.ఏ / ఎం.సి.ఏ",
+            "hi": "एमबीए/एमसीए",
+            "te": "ఎంబీఏ/ఎంసీఏ",
             "ta": "எம்பிஏ / எம்சிஏ",
-            "mr": "एम.बी.ए / एम.सी.ए",
+            "mr": "एमबीए/एमसीए",
             "kn": "ಎಂಬಿಎ / ಎಂಸಿಎ",
             "bn": "এমবিএ / এমসিএ",
             "gu": "એમબીએ / એમસીએ",
@@ -287,6 +469,17 @@ _DOCUMENT_CATEGORY_PROMPTS = {
     "kn": "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪ್ರವೇಶ ಕೋಟಾವನ್ನು ಆಯ್ಕೆಮಾಡಿ:",
     "bn": "অনুগ্রহ করে আপনার ভর্তি বিভাগ নির্বাচন করুন:",
     "gu": "કૃપા કરીને તમારી પ્રવેશ શ્રેણી પસંદ કરો:",
+}
+
+_DOCUMENT_PROGRAM_ACKNOWLEDGEMENTS = {
+    "en": "Okay, for {program}:",
+    "hi": "ठीक है, {program} के लिए:",
+    "te": "సరే, {program} కోసం:",
+    "ta": "சரி, {program}க்கு:",
+    "mr": "ठीक आहे, {program} साठी:",
+    "kn": "ಸರಿ, {program}ಗಾಗಿ:",
+    "bn": "ঠিক আছে, {program} এর জন্য:",
+    "gu": "બરાબર, {program} માટે:",
 }
 
 _DOCUMENT_CATEGORY_DETAILS = {
@@ -362,6 +555,7 @@ _DOCUMENT_CATEGORY_DETAILS = {
 }
 
 _DOCUMENT_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
+_DOCUMENT_SLOT_MEMORY_BY_SESSION: dict[str, dict[str, str]] = {}
 _CUTOFF_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
 
 _GUIDED_BACK_OPTION_VALUE = "__guided_previous_option__"
@@ -600,28 +794,123 @@ def _is_ambiguous_language_input(text: str) -> bool:
     return len(english_words) <= 2
 
 
-def _resolve_effective_language(session_id: str, user_message: str, requested_language: str) -> str:
-    """
-    Resolve response language dynamically per turn:
-    1) explicit language-switch request wins,
-    2) non-English detected language switches immediately,
-    3) ambiguous short/technical inputs keep current session language,
-    4) clear English switches to English.
-    """
-    has_session_language = session_id in _SESSION_LANGUAGE_BY_ID
-    session_language = _SESSION_LANGUAGE_BY_ID.get(session_id, _normalize_language_code(requested_language))
+def _is_sentence_like_input(text: str) -> bool:
+    """Heuristic: detect user-typed sentence vs short option-like input."""
+    stripped = text.strip()
+    if not stripped:
+        return False
 
-    change_target = detect_language_change_request(user_message, session_language)
-    if change_target and change_target != "show_selector" and change_target in SUPPORTED_LANGUAGES:
-        resolved = change_target
+    word_like_tokens = re.findall(
+        r"[A-Za-z]+|[\u0900-\u097F]+|[\u0C00-\u0C7F]+|[\u0B80-\u0BFF]+|[\u0C80-\u0CFF]+|[\u0980-\u09FF]+|[\u0A80-\u0AFF]+",
+        stripped,
+    )
+    return len(word_like_tokens) >= 3
+
+
+def _is_internal_option_value_input(text: str) -> bool:
+    """
+    Detect internal/canonical option values coming from button clicks.
+    These should never force a language switch.
+    """
+    normalized = re.sub(r"\s+", " ", text.strip().lower()).strip(" .:-")
+    if not normalized:
+        return False
+
+    if normalized in {"1", "2", "3", "option 1", "option 2", "option 3", "choice 1", "choice 2", "choice 3"}:
+        return True
+
+    canonical_values = {
+        "btech",
+        "mtech",
+        "mba_mca",
+        "convener",
+        "management",
+        "supernumerary",
+    }
+    if normalized in canonical_values:
+        return True
+
+    normalized_selection = _normalize_selection_text(normalized)
+    for details in _DOCUMENT_PROGRAM_DETAILS.values():
+        if normalized_selection == _normalize_selection_text(details["canonical_label"]):
+            return True
+    for details in _DOCUMENT_CATEGORY_DETAILS.values():
+        if normalized_selection == _normalize_selection_text(details["canonical_label"]):
+            return True
+
+    return False
+
+
+def _should_pivot_language(session_language: str, detected_language: str, user_message: str) -> bool:
+    """
+    Allow automatic language pivot for native-script input while keeping
+    internal option values language-locked.
+    """
+    if detected_language == session_language:
+        return False
+    if detected_language not in SUPPORTED_LANGUAGES:
+        return False
+    if _is_internal_option_value_input(user_message):
+        return False
+    # Any visible native script should pivot immediately (e.g., Marathi/Telugu words).
+    if any(ord(char) > 127 for char in user_message):
+        return True
+    if _is_ambiguous_language_input(user_message):
+        return False
+    return _is_sentence_like_input(user_message)
+
+
+def _resolve_effective_language(
+    session_id: str,
+    user_message: str,
+    requested_language: str,
+    force_language: bool = False,
+) -> str:
+    """
+    Resolve response language with latest-message priority:
+    1) internal button values never force language changes,
+    2) visible native-script input pivots immediately to that script,
+    3) short ASCII snippets keep current session language.
+    4) explicit force-language is applied only for internal option inputs.
+    """
+    stripped_message = (user_message or "").strip()
+    requested = _normalize_language_code(requested_language)
+    if (
+        force_language
+        and requested in SUPPORTED_LANGUAGES
+        and _is_internal_option_value_input(stripped_message)
+    ):
+        _SESSION_LANGUAGE_BY_ID[session_id] = requested
+        return requested
+
+    has_session_language = session_id in _SESSION_LANGUAGE_BY_ID
+    session_language = _SESSION_LANGUAGE_BY_ID.get(session_id, requested)
+
+    if _is_internal_option_value_input(stripped_message):
+        # Hard-lock rule: internal button values (e.g., btech/convener/1/2/3)
+        # must never drive language detection.
+        # Prefer existing session language; if unavailable, honor requested language.
+        resolved = session_language if has_session_language else requested
     else:
-        detected = _normalize_language_code(detect_language(user_message))
-        if detected != DEFAULT_LANGUAGE:
+        detected = _normalize_language_code(detect_language(stripped_message))
+
+        if not has_session_language:
+            resolved = detected if detected in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
+        elif _should_pivot_language(
+            session_language=session_language,
+            detected_language=detected,
+            user_message=stripped_message,
+        ):
             resolved = detected
-        elif _is_ambiguous_language_input(user_message):
-            resolved = session_language if has_session_language else DEFAULT_LANGUAGE
-        else:
+        elif (
+            detected == DEFAULT_LANGUAGE
+            and session_language != DEFAULT_LANGUAGE
+            and _is_sentence_like_input(stripped_message)
+            and not _is_ambiguous_language_input(stripped_message)
+        ):
             resolved = DEFAULT_LANGUAGE
+        else:
+            resolved = session_language
 
     _SESSION_LANGUAGE_BY_ID[session_id] = resolved
     return resolved
@@ -684,6 +973,250 @@ def _normalize_selection_text(text: str) -> str:
     lowered = re.sub(r"\s+", " ", lowered)
     return lowered.strip()
 
+
+def _resolve_user_visible_input(
+    user_message: str,
+    selected_option_label: Optional[str] = None,
+    selected_option_value: Optional[str] = None,
+) -> str:
+    """
+    Prefer user-visible option label over internal option values.
+    If a UI sends hidden value (e.g., "btech"), use the visible label text.
+    """
+    raw_message = (user_message or "").strip()
+    visible_label = (selected_option_label or "").strip()
+    option_value = (selected_option_value or "").strip()
+
+    if not visible_label:
+        return raw_message
+    if not raw_message:
+        return visible_label
+
+    if option_value:
+        raw_normalized = _normalize_selection_text(raw_message)
+        value_normalized = _normalize_selection_text(option_value)
+        if raw_normalized == value_normalized:
+            return visible_label
+
+    if _is_internal_option_value_input(raw_message):
+        return visible_label
+
+    return raw_message
+
+
+def _replace_raw_url_with_markdown_link(match: re.Match[str], link_label: str) -> str:
+    """Replace a raw URL with a localized clickable markdown link."""
+    raw_url = match.group("url")
+    trimmed_url = raw_url.rstrip(".,;:!?")
+    trailing = raw_url[len(trimmed_url):]
+    normalized_url = trimmed_url
+    if normalized_url.lower().startswith("www."):
+        normalized_url = f"https://{normalized_url}"
+    return f"[{link_label}]({normalized_url}){trailing}"
+
+
+def _format_raw_urls_as_clickable_markdown(response_text: str, language: str) -> str:
+    """Ensure raw URLs are rendered as clean clickable markdown links."""
+    if not response_text:
+        return response_text
+
+    default_label = _get_localized_text(_DEFAULT_LINK_LABELS, language)
+    club_label = _get_localized_text(_CLUB_LINK_LABELS, language)
+    formatted_lines: list[str] = []
+    for line in response_text.splitlines():
+        if not _RAW_URL_PATTERN.search(line):
+            formatted_lines.append(line)
+            continue
+        if re.search(r"\[[^\]]+\]\((?:https?://|www\.)[^\s\)]+\)", line, flags=re.IGNORECASE):
+            formatted_lines.append(line)
+            continue
+
+        line_without_url = _RAW_URL_PATTERN.sub("", line)
+        link_label = club_label if re.search(r"\bclub\b", line_without_url, flags=re.IGNORECASE) else default_label
+        formatted_lines.append(_RAW_URL_PATTERN.sub(lambda m: _replace_raw_url_with_markdown_link(m, link_label), line))
+
+    return "\n".join(formatted_lines)
+
+
+def _is_transport_fee_query(user_message: str) -> bool:
+    """Detect transport-fee intent from common user phrasings."""
+    normalized = " ".join((user_message or "").lower().split())
+    if not normalized:
+        return False
+    if any(phrase in normalized for phrase in _TRANSPORT_FEE_TRIGGER_PHRASES):
+        return True
+
+    has_transport_term = any(term in normalized for term in ("transport", "transportation", "bus", "travel"))
+    has_fee_term = any(term in normalized for term in ("fee", "fees", "charge", "charges", "fare"))
+    return has_transport_term and has_fee_term
+
+
+def _normalize_link_url(raw_url: str) -> str:
+    trimmed_url = (raw_url or "").rstrip(".,;:!?")
+    if trimmed_url.lower().startswith("www."):
+        return f"https://{trimmed_url}"
+    return trimmed_url
+
+
+def _extract_links_with_line_context(source_text: str) -> list[tuple[str, str]]:
+    """Extract links while preserving their source line for label inference."""
+    if not source_text:
+        return []
+
+    links: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for line in source_text.splitlines():
+        for match in _MARKDOWN_URL_PATTERN.finditer(line):
+            normalized_url = _normalize_link_url(match.group("url"))
+            if normalized_url and normalized_url not in seen:
+                links.append((normalized_url, line))
+                seen.add(normalized_url)
+
+        for match in _RAW_URL_PATTERN.finditer(line):
+            normalized_url = _normalize_link_url(match.group("url"))
+            if normalized_url and normalized_url not in seen:
+                links.append((normalized_url, line))
+                seen.add(normalized_url)
+
+    return links
+
+
+def _build_transport_fee_fallback_response(language: str) -> str:
+    fallback_intro = _get_localized_text(_TRANSPORT_FEE_FALLBACK_TEXT, language)
+    follow_up = _get_localized_text(_TRANSPORT_FEE_FALLBACK_FOLLOWUP_TEXT, language)
+    website_label = _get_localized_text(_TRANSPORT_FALLBACK_WEBSITE_CTA_TEXT, language)
+    return (
+        f"{fallback_intro}\n"
+        f"👉 [{website_label}]({_OFFICIAL_WEBSITE_URL})\n\n"
+        f"{follow_up}"
+    )
+
+
+def _build_transport_fee_cta_response(source_text: str, language: str) -> str:
+    """Build transport-fee CTA response from extracted links or fallback when unavailable."""
+    extracted_links = _extract_links_with_line_context(source_text)
+    if not extracted_links:
+        return _build_transport_fee_fallback_response(language)
+
+    first_year_url: Optional[str] = None
+    other_years_url: Optional[str] = None
+    additional_urls: list[str] = []
+
+    for url, line in extracted_links:
+        if _TRANSPORT_FIRST_YEAR_PATTERN.search(line) and first_year_url is None:
+            first_year_url = url
+            continue
+        if _TRANSPORT_OTHER_YEARS_PATTERN.search(line) and other_years_url is None:
+            other_years_url = url
+            continue
+
+        if first_year_url is None:
+            first_year_url = url
+        elif other_years_url is None:
+            other_years_url = url
+        else:
+            additional_urls.append(url)
+
+    intro = _get_localized_text(_TRANSPORT_FEE_INTRO_TEXT, language)
+    first_year_label = _get_localized_text(_TRANSPORT_FIRST_YEAR_LABELS, language)
+    other_years_label = _get_localized_text(_TRANSPORT_OTHER_YEARS_LABELS, language)
+    additional_label = _get_localized_text(_TRANSPORT_ADDITIONAL_LABELS, language)
+    cta_text = _get_localized_text(_TRANSPORT_CTA_TEXT, language)
+    link_text = _get_localized_text(_TRANSPORT_LINK_TEXT, language)
+    outro = _get_localized_text(_TRANSPORT_FEE_OUTRO_TEXT, language)
+    follow_up = _get_localized_text(_TRANSPORT_FEE_FOLLOWUP_TEXT, language)
+
+    lines: list[str] = [intro, ""]
+    if first_year_url:
+        lines.extend(
+            [
+                f"👉 **{first_year_label}**",
+                f"{cta_text}: [{link_text}]({first_year_url})",
+                "",
+            ]
+        )
+    if other_years_url:
+        lines.extend(
+            [
+                f"👉 **{other_years_label}**",
+                f"{cta_text}: [{link_text}]({other_years_url})",
+                "",
+            ]
+        )
+
+    for index, url in enumerate(additional_urls, start=1):
+        lines.extend(
+            [
+                f"👉 **{additional_label} {index}**",
+                f"{cta_text}: [{link_text}]({url})",
+                "",
+            ]
+        )
+
+    lines.extend([outro, "", follow_up])
+    return "\n".join(lines).strip()
+
+
+def _is_context_dependent_followup(user_message: str) -> bool:
+    """
+    Detect short follow-up turns like "fees?" / "hostel?" that need prior context.
+    """
+    stripped = (user_message or "").strip()
+    if not stripped:
+        return False
+    if _is_transport_fee_query(stripped):
+        return False
+    if _is_internal_option_value_input(stripped):
+        return False
+    if _extract_document_program_selection(stripped, allow_numeric=False):
+        return False
+    if _extract_document_category_selection(stripped, allow_numeric=False):
+        return False
+    if extract_branch(stripped):
+        return False
+
+    tokens = re.findall(
+        r"[A-Za-z]+|[\u0900-\u097F]+|[\u0C00-\u0C7F]+|[\u0B80-\u0BFF]+|[\u0C80-\u0CFF]+|[\u0980-\u09FF]+|[\u0A80-\u0AFF]+",
+        stripped.lower(),
+    )
+    if not tokens or len(tokens) > 4:
+        return False
+    if any(token in _INTERROGATIVE_TOKENS for token in tokens):
+        return False
+
+    lowered = stripped.lower()
+    if len(tokens) <= 2:
+        return stripped.endswith("?") or any(hint in lowered for hint in _SHORT_FOLLOWUP_HINTS)
+    return any(hint in lowered for hint in _SHORT_FOLLOWUP_HINTS)
+
+
+def _build_contextual_query(
+    session_id: str,
+    user_message: str,
+    chat_history: Optional[list[ChatTurn]] = None,
+) -> str:
+    """Attach previous turn context for short follow-up questions."""
+    history_block = _build_history_context_block(chat_history or [])
+    if history_block:
+        if _is_context_dependent_followup(user_message):
+            return f"{history_block}\n\nCurrent follow-up question: {user_message}"
+        return f"{history_block}\n\nCurrent user question: {user_message}"
+
+    previous_query = (_SESSION_CONTEXT_BY_ID.get(session_id) or "").strip()
+    if previous_query and _is_context_dependent_followup(user_message):
+        return f"{previous_query}\n\nFollow-up question: {user_message}"
+    return user_message
+
+
+def _remember_session_context(session_id: str, context_text: str) -> None:
+    """Persist bounded session context for short follow-up inference."""
+    cleaned = (context_text or "").strip()
+    if not cleaned:
+        return
+    if len(cleaned) > _MAX_SESSION_CONTEXT_CHARS:
+        cleaned = cleaned[-_MAX_SESSION_CONTEXT_CHARS:]
+    _SESSION_CONTEXT_BY_ID[session_id] = cleaned
+
 _LIST_TOPIC_KEYWORDS = (
     "document",
     "documents",
@@ -701,15 +1234,145 @@ _LIST_TOPIC_KEYWORDS = (
 
 _INLINE_NUMBER_MARKER_PATTERN = re.compile(r"(?<!\w)\d{1,2}\.\s+")
 _INLINE_BULLET_MARKER_PATTERN = re.compile(r"[•●▪◦]\s+")
+_USER_TEXT_TOKEN_PATTERN = re.compile(
+    r"[A-Za-z0-9]+|[\u0900-\u097F]+|[\u0C00-\u0C7F]+|[\u0B80-\u0BFF]+|[\u0C80-\u0CFF]+|[\u0980-\u09FF]+|[\u0A80-\u0AFF]+|[^\s]"
+)
+
+_LEAKED_ENGLISH_TERM_REPLACEMENTS = {
+    "hi": [
+        (r"\bb\.?\s*tech\b", "बी टेक"),
+        (r"\bm\.?\s*tech\b", "एम टेक"),
+        (r"\bm\.?\s*b\.?\s*a\b|\bmba\b", "एम बी ए"),
+        (r"\bm\.?\s*c\.?\s*a\b|\bmca\b", "एम सी ए"),
+        (r"\bmigration\s*certificate\b", "प्रवासन प्रमाणपत्र"),
+        (r"\boriginal\s*\+\s*(\d+)\s*photocopies\b", r"मूल + \1 छायाप्रतियां"),
+        (r"\boriginal\s*\+\s*photocopies\b", "मूल + छायाप्रतियां"),
+        (r"\boriginal\s*\+\s*photocopy\b", "मूल + छायाप्रति"),
+        (r"\bdocuments?\b", "दस्तावेज"),
+        (r"\boriginal\b", "मूल"),
+        (r"\bphotocopies\b", "छायाप्रतियां"),
+        (r"\bphotocopy\b", "छायाप्रति"),
+        (r"\brank\s*card\b", "रैंक कार्ड"),
+        (r"\bintermediate\s*\(\s*10\+2\s*\)\s*marks\s*memo\b", "10+2 अंक ज्ञापन"),
+        (r"\bmarks\s*memo\b", "अंक ज्ञापन"),
+        (r"\bcategory\s*-?\s*a\b", "श्रेणी A"),
+        (r"\bcategory\s*-?\s*b\b", "श्रेणी B"),
+        (r"\btransfer\s*certificate\b", "स्थानांतरण प्रमाणपत्र"),
+        (r"\bstudy\s*certificate\b", "अध्ययन प्रमाणपत्र"),
+    ],
+    "mr": [
+        (r"\bb\.?\s*tech\b", "बी टेक"),
+        (r"\bm\.?\s*tech\b", "एम टेक"),
+        (r"\bm\.?\s*b\.?\s*a\b|\bmba\b", "एम बी ए"),
+        (r"\bm\.?\s*c\.?\s*a\b|\bmca\b", "एम सी ए"),
+        (r"\bdocuments?\b", "कागदपत्रे"),
+        (r"\boriginal\b", "मूळ"),
+        (r"\bphotocopies\b", "छायाप्रती"),
+        (r"\bphotocopy\b", "छायाप्रत"),
+        (r"\brank\s*card\b", "रँक कार्ड"),
+        (r"\bintermediate\s*\(\s*10\+2\s*\)\s*marks\s*memo\b", "10+2 गुणपत्रक"),
+        (r"\bmarks\s*memo\b", "गुणपत्रक"),
+        (r"\bcategory\s*-?\s*a\b", "प्रवर्ग A"),
+        (r"\bcategory\s*-?\s*b\b", "प्रवर्ग B"),
+        (r"\btransfer\s*certificate\b", "स्थानांतरण प्रमाणपत्र"),
+        (r"\bstudy\s*certificate\b", "अभ्यास प्रमाणपत्र"),
+    ],
+    "te": [
+        (r"\bb\.?\s*tech\b", "బి టెక్"),
+        (r"\bm\.?\s*tech\b", "ఎం టెక్"),
+        (r"\bm\.?\s*b\.?\s*a\b|\bmba\b", "ఎం బి ఏ"),
+        (r"\bm\.?\s*c\.?\s*a\b|\bmca\b", "ఎం సి ఏ"),
+        (r"\bmigration\s*certificate\b", "వలస ధృవీకరణ పత్రం"),
+        (r"\boriginal\s*\+\s*(\d+)\s*photocopies\b", r"అసలు + \1 నకలు"),
+        (r"\boriginal\s*\+\s*photocopies\b", "అసలు + నకలు"),
+        (r"\boriginal\s*\+\s*photocopy\b", "అసలు + నకలు"),
+        (r"\bdocuments?\b", "పత్రాలు"),
+        (r"\boriginal\b", "అసలు"),
+        (r"\bphotocopies\b", "ఫోటోకాపీలు"),
+        (r"\bphotocopy\b", "ఫోటోకాపీ"),
+        (r"\brank\s*card\b", "ర్యాంక్ కార్డు"),
+        (r"\btransfer\s*certificate\b", "బదిలీ ధ్రువపత్రం"),
+        (r"\bstudy\s*certificate\b", "అధ్యయన ధ్రువపత్రం"),
+    ],
+    "ta": [
+        (r"\boriginal\b", "அசல்"),
+        (r"\bphotocopies\b", "நகல்கள்"),
+        (r"\bphotocopy\b", "நகல்"),
+        (r"\brank\s*card\b", "தரவரிசை அட்டை"),
+        (r"\btransfer\s*certificate\b", "மாற்றுச் சான்றிதழ்"),
+        (r"\bstudy\s*certificate\b", "படிப்பு சான்றிதழ்"),
+    ],
+    "kn": [
+        (r"\boriginal\b", "ಮೂಲ"),
+        (r"\bphotocopies\b", "ಛಾಯಾಪ್ರತಿಗಳು"),
+        (r"\bphotocopy\b", "ಛಾಯಾಪ್ರತಿ"),
+        (r"\brank\s*card\b", "ಶ್ರೇಣಿ ಕಾರ್ಡ್"),
+        (r"\btransfer\s*certificate\b", "ಸ್ಥಳಾಂತರ ಪ್ರಮಾಣಪತ್ರ"),
+        (r"\bstudy\s*certificate\b", "ಅಧ್ಯಯನ ಪ್ರಮಾಣಪತ್ರ"),
+    ],
+    "bn": [
+        (r"\boriginal\b", "মূল"),
+        (r"\bphotocopies\b", "ফটোকপি"),
+        (r"\bphotocopy\b", "ফটোকপি"),
+        (r"\brank\s*card\b", "র‍্যাঙ্ক কার্ড"),
+        (r"\btransfer\s*certificate\b", "স্থানান্তর সনদ"),
+        (r"\bstudy\s*certificate\b", "অধ্যয়ন সনদ"),
+    ],
+    "gu": [
+        (r"\boriginal\b", "મૂળ"),
+        (r"\bphotocopies\b", "ફોટોકોપીઓ"),
+        (r"\bphotocopy\b", "ફોટોકોપી"),
+        (r"\brank\s*card\b", "રેન્ક કાર્ડ"),
+        (r"\btransfer\s*certificate\b", "સ્થાનાંતરણ પ્રમાણપત્ર"),
+        (r"\bstudy\s*certificate\b", "અભ્યાસ પ્રમાણપત્ર"),
+    ],
+}
+
+
+def _sanitize_non_english_response_leakage(response_text: str, language: str) -> str:
+    """
+    Replace common leaked English admission terms for selected native languages.
+    This is a safety net after generation, especially for RAG content originally in English.
+    """
+    if not response_text or language == DEFAULT_LANGUAGE:
+        return response_text
+
+    replacements = _LEAKED_ENGLISH_TERM_REPLACEMENTS.get(language)
+    if not replacements:
+        return response_text
+
+    sanitized = response_text
+    for pattern, replacement in replacements:
+        sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
+
+    return sanitized
+
+
+def _build_no_context_fallback_response(language: str) -> str:
+    """Build graceful fallback response when retrieval has no relevant context."""
+    acknowledgement = _get_localized_text(_RETRIEVE_NO_CONTEXT_RESPONSES, language)
+    website_guidance = _get_localized_text(_NO_CONTEXT_WEBSITE_GUIDANCE, language)
+    follow_up = _get_localized_text(_NO_CONTEXT_FOLLOWUP_QUESTIONS, language)
+    return (
+        f"{acknowledgement}\n\n"
+        f"{website_guidance}\n"
+        f"{_OFFICIAL_WEBSITE_URL}\n\n"
+        f"{follow_up}"
+    )
+
 
 async def retrieve_and_respond(query: str, language: str = "en", additional_instructions: str = "") -> str:
     """Generate AI response using RAG pipeline."""
     
     # Retrieve relevant context
     retrieval_result = retrieve(query, top_k=5)
+
+    if _is_transport_fee_query(query):
+        context_for_links = retrieval_result.context_text if retrieval_result.chunks else ""
+        return _build_transport_fee_cta_response(context_for_links, language)
     
     if not retrieval_result.chunks:
-        return _get_localized_text(_RETRIEVE_NO_CONTEXT_RESPONSES, language)
+        return _build_no_context_fallback_response(language)
     
     # Map language codes to full language names for better LLM understanding
     language_names = {
@@ -730,23 +1393,52 @@ async def retrieve_and_respond(query: str, language: str = "en", additional_inst
         additional_block = f"\nAdditional instruction:\n{additional_instructions.strip()}\n"
     
     # Generate response using GPT with retrieved context
-    system_prompt = f"""You are a helpful AI assistant for VNRVJIET (VNR Vignana Jyothi Institute of Engineering and Technology) admissions.
+    system_prompt = f"""You are an intelligent conversational college assistant for VNRVJIET (VNR Vignana Jyothi Institute of Engineering and Technology).
 
-Use the provided context to answer questions accurately. If the context doesn't contain the answer, say so clearly.
+Core behavior:
+- Be natural, friendly, and counselor-like. Maintain conversation context and guide the user forward.
+- Do not sound robotic. Keep answers concise but useful.
+- Never use abrupt lines such as "No context found."
 
-IMPORTANT: You MUST respond ONLY in {language_name} language. Do NOT use English unless the user selected English.
-For non-English responses, avoid English words in the final answer except mandatory exam acronyms such as TS EAPCET and JEE.
+Response policy based on available context:
+1) If relevant context is available:
+   - Give a clear, structured, accurate answer grounded in context.
+   - Summarize when helpful; do not dump raw chunks.
+2) If context is partial:
+   - Combine available context with cautious general reasoning.
+   - Do not hallucinate specifics that are not supported.
+   - Clearly keep uncertain parts general.
+3) If answer is not available from context:
+   - Politely acknowledge the limitation.
+   - Suggest the official website and include this exact URL on its own line: {_OFFICIAL_WEBSITE_URL}
+   - Optionally guide where to look (for example Administration/Announcements/Admissions pages).
 
-For Marathi (मराठी), your ENTIRE response must be in Marathi script with NO English sentences.
+Follow-up strategy:
+- Continue the conversation naturally until the user query is fully resolved.
+- If critical details are missing, ask a concise clarifying follow-up question.
+- If the answer is complete, you may end with one relevant next-step question.
+- Avoid repeating the same follow-up question unless the user has not provided the required detail.
 
-Keep responses informative but concise. Include specific details like numbers, dates, and procedures when available.
+For abstract or opinion-based queries (for example "Why should I join?", "What are disadvantages?", "Is it good for sports?"):
+- Give a balanced summary using academics, infrastructure, placements, and extracurriculars.
+- Avoid extreme positive/negative bias.
 
-STRICT LIST FORMATTING RULES (MANDATORY):
-- Whenever the answer includes documents, steps, requirements, fee breakdowns, or any multi-item information, format it as a clean list.
-- Use numbered lists (1., 2., 3.) for ordered items.
-- Put each item on a new line.
-- Never combine multiple list items in a single paragraph line.
-- If context is unstructured, first split into individual items, then present as a numbered list.
+Link handling:
+- If social media or external links are available in context, present them clearly with a short lead-in line and include the raw URL.
+- Keep links uncluttered and easy to click.
+
+Clarity handling:
+- If user intent is ambiguous, ask a clarification question instead of guessing.
+
+IMPORTANT language rule:
+- You MUST respond ONLY in {language_name}.
+- Do NOT switch to English unless the selected language is English.
+- For non-English responses, avoid English words except mandatory acronyms such as TS EAPCET and JEE.
+- For Marathi (मराठी), write the full response in Marathi script only.
+
+Formatting rules:
+- For steps/documents/requirements/fees or other multi-item details, use clean numbered lists (1., 2., 3.) with one item per line.
+- Never merge multiple list items into one paragraph line.
 
 Canonical admission category hierarchy (STRICT):
 1) Convenor / Category-A
@@ -761,7 +1453,7 @@ Rules:
 - Never present Category-B or NRI as top-level categories.
 - Treat "NRI Sponsored" as "NRI" and never list both separately.
 
-Standard abbreviations (like CSE, ECE, BC-D, OC) can remain as-is.
+Standard abbreviations (CSE, ECE, BC-D, OC) can remain as-is.
 
 {additional_block}
 Context:
@@ -787,10 +1479,19 @@ from app.utils.validators import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+class ChatTurn(BaseModel):
+    role: str
+    content: str
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     language: str = "en"
+    force_language: bool = False
+    selected_option_label: Optional[str] = None
+    selected_option_value: Optional[str] = None
+    chat_history: list[ChatTurn] = Field(default_factory=list)
 
 class ChatResponse(BaseModel):
     response: str
@@ -805,7 +1506,63 @@ def _is_required_documents_query(message: str) -> bool:
     return any(pattern.search(normalized) for pattern in _REQUIRED_DOCUMENT_PATTERNS)
 
 
-def _extract_document_program_selection(message: str) -> Optional[str]:
+def _remove_consecutive_duplicate_words(text: str) -> str:
+    """Collapse repeated consecutive words from noisy speech-to-text input."""
+    if not text:
+        return text
+
+    tokens = _USER_TEXT_TOKEN_PATTERN.findall(text)
+    if not tokens:
+        return text.strip()
+
+    deduped_tokens: list[str] = []
+    for token in tokens:
+        if not deduped_tokens:
+            deduped_tokens.append(token)
+            continue
+
+        previous = deduped_tokens[-1]
+        if token.isalnum() and previous.isalnum() and token.casefold() == previous.casefold():
+            continue
+        deduped_tokens.append(token)
+
+    joined = " ".join(deduped_tokens)
+    joined = re.sub(r"\s+([,.;:!?])", r"\1", joined)
+    joined = re.sub(r"([\(\[\{])\s+", r"\1", joined)
+    joined = re.sub(r"\s+([\)\]\}])", r"\1", joined)
+    return re.sub(r"\s+", " ", joined).strip()
+
+
+def _normalize_user_message_text(text: str) -> str:
+    """Normalize user input text while keeping semantic intent."""
+    normalized = re.sub(r"\s+", " ", (text or "").strip())
+    return _remove_consecutive_duplicate_words(normalized)
+
+
+def _build_history_context_block(chat_history: list[ChatTurn]) -> str:
+    """Build compact dialogue context block from recent turns."""
+    if not chat_history:
+        return ""
+
+    lines: list[str] = []
+    for turn in chat_history[-_MAX_HISTORY_TURNS_FOR_CONTEXT:]:
+        role = (turn.role or "").strip().lower()
+        content = re.sub(r"\s+", " ", (turn.content or "").strip())
+        if role not in {"user", "assistant"} or not content:
+            continue
+
+        speaker = "User" if role == "user" else "Assistant"
+        if speaker == "User":
+            content = _normalize_user_message_text(content)
+        lines.append(f"{speaker}: {content}")
+
+    if not lines:
+        return ""
+
+    return "Conversation history:\n" + "\n".join(lines)
+
+
+def _extract_document_program_selection(message: str, allow_numeric: bool = True) -> Optional[str]:
     """Map user selection to canonical admission program."""
     normalized = re.sub(r"\s+", " ", message.strip().lower())
     if not normalized:
@@ -814,11 +1571,11 @@ def _extract_document_program_selection(message: str) -> Optional[str]:
     normalized = normalized.strip(" .:-")
     normalized_selection = _normalize_selection_text(normalized)
 
-    if normalized in {"1", "option 1", "choice 1"}:
+    if allow_numeric and normalized in {"1", "option 1", "choice 1"}:
         return "btech"
-    if normalized in {"2", "option 2", "choice 2"}:
+    if allow_numeric and normalized in {"2", "option 2", "choice 2"}:
         return "mtech"
-    if normalized in {"3", "option 3", "choice 3"}:
+    if allow_numeric and normalized in {"3", "option 3", "choice 3"}:
         return "mba_mca"
 
     if normalized in _DOCUMENT_PROGRAM_DETAILS:
@@ -862,7 +1619,7 @@ def _extract_document_program_selection(message: str) -> Optional[str]:
     return None
 
 
-def _extract_document_category_selection(message: str) -> Optional[str]:
+def _extract_document_category_selection(message: str, allow_numeric: bool = True) -> Optional[str]:
     """Map user selection to canonical admission document category."""
     normalized = re.sub(r"\s+", " ", message.strip().lower())
     if not normalized:
@@ -871,11 +1628,11 @@ def _extract_document_category_selection(message: str) -> Optional[str]:
     normalized = normalized.strip(" .:-")
     normalized_selection = _normalize_selection_text(normalized)
 
-    if normalized in {"1", "option 1", "choice 1"}:
+    if allow_numeric and normalized in {"1", "option 1", "choice 1"}:
         return "convener"
-    if normalized in {"2", "option 2", "choice 2"}:
+    if allow_numeric and normalized in {"2", "option 2", "choice 2"}:
         return "management"
-    if normalized in {"3", "option 3", "choice 3"}:
+    if allow_numeric and normalized in {"3", "option 3", "choice 3"}:
         return "supernumerary"
 
     if normalized in _DOCUMENT_CATEGORY_DETAILS:
@@ -925,7 +1682,7 @@ def _build_document_program_prompt_response(language: str) -> ChatResponse:
     return ChatResponse(
         response=f"{prompt_text}\n\n" + "\n".join(prompt_lines),
         intent="informational",
-        metadata={"awaiting_document_program": True},
+        metadata={"awaiting_document_program": True, "language": language},
         options=options,
     )
 
@@ -935,6 +1692,8 @@ def _build_document_category_prompt_response(language: str, selected_program: st
     program_label = _get_document_program_label(selected_program, language)
     prompt_template = _get_localized_text(_DOCUMENT_CATEGORY_PROMPTS, language)
     prompt_text = prompt_template.format(program=program_label)
+    acknowledgement_template = _get_localized_text(_DOCUMENT_PROGRAM_ACKNOWLEDGEMENTS, language)
+    acknowledgement = acknowledgement_template.format(program=program_label)
     options: list[dict] = []
     for category_key in ("convener", "management", "supernumerary"):
         label = _get_document_category_label(category_key, language)
@@ -942,9 +1701,14 @@ def _build_document_category_prompt_response(language: str, selected_program: st
 
     prompt_lines = [f"{idx}. {option['label']}" for idx, option in enumerate(options, start=1)]
     return ChatResponse(
-        response=f"{prompt_text}\n\n" + "\n".join(prompt_lines),
+        response=f"{acknowledgement}\n{prompt_text}\n\n" + "\n".join(prompt_lines),
         intent="informational",
-        metadata={"awaiting_document_category": True, "document_program": selected_program},
+        metadata={
+            "awaiting_document_category": True,
+            "document_program": selected_program,
+            "document_program_label": program_label,
+            "language": language,
+        },
         options=options,
     )
 
@@ -955,36 +1719,59 @@ async def _handle_required_documents_flow(
     language: str,
 ) -> Optional[ChatResponse]:
     """
-    Enforce mandatory two-step flow before returning required document lists:
-    1) Program selection
-    2) Admission category selection
+    Context-aware required-documents flow:
+    - capture program/category from the current message,
+    - reuse known slots from session memory,
+    - ask only for missing slots,
+    - answer immediately when both slots are known.
     """
-    if _is_required_documents_query(user_message):
-        _DOCUMENT_FLOW_STATE_BY_SESSION[session_id] = {"step": "awaiting_program"}
-        return _build_document_program_prompt_response(language)
-
     flow_state = _DOCUMENT_FLOW_STATE_BY_SESSION.get(session_id)
-    if not flow_state:
+    slot_state = _DOCUMENT_SLOT_MEMORY_BY_SESSION.get(session_id, {})
+    is_documents_query = _is_required_documents_query(user_message)
+    flow_active = bool(flow_state and flow_state.get("step") in {"awaiting_program", "awaiting_category"})
+
+    if not is_documents_query and not flow_active:
         return None
 
-    current_step = flow_state.get("step")
-    if current_step == "awaiting_program":
-        selected_program = _extract_document_program_selection(user_message)
-        if not selected_program:
-            return _build_document_program_prompt_response(language)
+    current_step = (flow_state or {}).get("step", "")
+    allow_program_numeric = current_step == "awaiting_program"
+    allow_category_numeric = current_step == "awaiting_category"
 
-        flow_state["step"] = "awaiting_category"
-        flow_state["program"] = selected_program
-        _DOCUMENT_FLOW_STATE_BY_SESSION[session_id] = flow_state
-        return _build_document_category_prompt_response(language, selected_program)
+    extracted_program = _extract_document_program_selection(
+        user_message,
+        allow_numeric=allow_program_numeric,
+    )
+    extracted_category = _extract_document_category_selection(
+        user_message,
+        allow_numeric=allow_category_numeric,
+    )
 
-    selected_program = flow_state.get("program")
-    if not selected_program or selected_program not in _DOCUMENT_PROGRAM_DETAILS:
+    if extracted_program:
+        slot_state["program"] = extracted_program
+    if extracted_category:
+        slot_state["category"] = extracted_category
+
+    selected_program = slot_state.get("program")
+    selected_category = slot_state.get("category")
+
+    if selected_program and selected_program not in _DOCUMENT_PROGRAM_DETAILS:
+        slot_state.pop("program", None)
+        selected_program = None
+    if selected_category and selected_category not in _DOCUMENT_CATEGORY_DETAILS:
+        slot_state.pop("category", None)
+        selected_category = None
+
+    _DOCUMENT_SLOT_MEMORY_BY_SESSION[session_id] = slot_state
+
+    if not selected_program:
         _DOCUMENT_FLOW_STATE_BY_SESSION[session_id] = {"step": "awaiting_program"}
         return _build_document_program_prompt_response(language)
 
-    selected_category = _extract_document_category_selection(user_message)
     if not selected_category:
+        _DOCUMENT_FLOW_STATE_BY_SESSION[session_id] = {
+            "step": "awaiting_category",
+            "program": selected_program,
+        }
         return _build_document_category_prompt_response(language, selected_program)
 
     _DOCUMENT_FLOW_STATE_BY_SESSION.pop(session_id, None)
@@ -1003,7 +1790,8 @@ async def _handle_required_documents_flow(
         f"The selected program is {localized_program}. "
         f"Start exactly with: \"{localized_prefix}\". "
         "Then list required documents as a clean bulleted list with one item per line. "
-        "Do not include any other program or category."
+        "Do not include any other program or category. "
+        "Keep wording speech-friendly for text-to-speech: short clear sentences, no emojis."
     )
     if language != DEFAULT_LANGUAGE:
         additional_instructions += (
@@ -1023,6 +1811,7 @@ async def _handle_required_documents_flow(
         response=response_text,
         intent="informational",
         metadata={
+            "language": language,
             "document_program": selected_program,
             "document_program_label": localized_program,
             "document_category": selected_category,
@@ -1712,7 +2501,11 @@ def _enforce_structured_list_formatting(response_text: str, user_message: str = 
 
 def _finalize_chat_response(response: ChatResponse, user_message: str) -> ChatResponse:
     """Apply final output formatting guarantees before returning to the client."""
+    language = _normalize_language_code(response.metadata.get("language", DEFAULT_LANGUAGE))
+    response.response = _sanitize_non_english_response_leakage(response.response, language)
+    response.response = _normalize_admission_category_text(response.response)
     response.response = _enforce_structured_list_formatting(response.response, user_message)
+    response.response = _format_raw_urls_as_clickable_markdown(response.response, language)
     return response
 
 
@@ -1730,18 +2523,26 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
     Routes to appropriate engines based on intent classification.
     """
     try:
-        user_message = request.message.strip()
+        raw_user_message = _normalize_user_message_text(request.message or "")
         session_id = request.session_id or "default"
+        user_message = _resolve_user_visible_input(
+            raw_user_message,
+            request.selected_option_label,
+            request.selected_option_value,
+        )
+        user_message = _normalize_user_message_text(user_message)
         effective_language = _resolve_effective_language(
             session_id=session_id,
             user_message=user_message,
             requested_language=request.language,
+            force_language=request.force_language,
         )
         
         if not user_message:
             return _finalize_chat_response(ChatResponse(
                 response=_get_localized_text(_EMPTY_MESSAGE_RESPONSES, effective_language),
-                intent="greeting"
+                intent="greeting",
+                metadata={"language": effective_language},
             ), user_message)
         
         logger.info(f"Processing query: {user_message[:100]}...")
@@ -1753,6 +2554,7 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             language=effective_language,
         )
         if document_flow_response is not None:
+            _remember_session_context(session_id, user_message)
             return _finalize_chat_response(document_flow_response, user_message)
 
         cutoff_flow_response = await _handle_guided_cutoff_flow(
@@ -1765,37 +2567,70 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         
         # Classify the user's intent
         intent_result = classify(user_message)
+
+        if (
+            intent_result.intent.value in {"informational", "mixed"}
+            and _is_context_dependent_followup(user_message)
+            and not (_SESSION_CONTEXT_BY_ID.get(session_id) or "").strip()
+        ):
+            return _finalize_chat_response(
+                ChatResponse(
+                    response=_get_localized_text(_AMBIGUOUS_CONTEXT_PROMPTS, effective_language),
+                    intent="informational",
+                    metadata={"language": effective_language, "needs_clarification": True},
+                ),
+                user_message,
+            )
         
         if intent_result.intent.value == "cutoff":
             # Handle cutoff/eligibility queries
             return _finalize_chat_response(
-                await handle_cutoff_query(user_message, intent_result, effective_language),
+                await handle_cutoff_query(
+                    user_message,
+                    intent_result,
+                    effective_language,
+                    session_id=session_id,
+                ),
                 user_message,
             )
         
         elif intent_result.intent.value == "mixed":
             # Handle mixed queries (RAG + cutoff)
             return _finalize_chat_response(
-                await handle_mixed_query(user_message, intent_result, effective_language),
+                await handle_mixed_query(
+                    user_message,
+                    intent_result,
+                    effective_language,
+                    session_id=session_id,
+                    chat_history=request.chat_history,
+                ),
                 user_message,
             )
         
         elif intent_result.intent.value == "greeting":
             return _finalize_chat_response(ChatResponse(
                 response=get_greeting_message(effective_language),
-                intent="greeting"
+                intent="greeting",
+                metadata={"language": effective_language},
             ), user_message)
         
         elif intent_result.intent.value == "out_of_scope":
             return _finalize_chat_response(ChatResponse(
                 response=get_out_of_scope_message(effective_language),
-                intent="out_of_scope"
+                intent="out_of_scope",
+                metadata={"language": effective_language},
             ), user_message)
         
         else:
             # Default to RAG for informational queries
             return _finalize_chat_response(
-                await handle_informational_query(user_message, intent_result, effective_language),
+                await handle_informational_query(
+                    user_message,
+                    intent_result,
+                    effective_language,
+                    session_id=session_id,
+                    chat_history=request.chat_history,
+                ),
                 user_message,
             )
             
@@ -1804,16 +2639,42 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def handle_cutoff_query(user_message: str, intent_result: ClassificationResult, language: str = "en") -> ChatResponse:
+async def handle_cutoff_query(
+    user_message: str,
+    intent_result: ClassificationResult,
+    language: str = "en",
+    session_id: str = "default",
+) -> ChatResponse:
     """Handle queries that need cutoff/eligibility data from Firestore."""
     
-    # Extract parameters from user message
-    branch = extract_branch(user_message)
-    category = extract_category(user_message) 
-    gender = extract_gender(user_message) or "Any"
-    year = extract_year(user_message)
-    quota = extract_quota(user_message) or "Convenor"
+    # Extract parameters with session-slot inheritance for follow-up queries.
+    slot_state = dict(_SESSION_CUTOFF_SLOT_MEMORY_BY_SESSION.get(session_id, {}))
+
+    extracted_branch = extract_branch(user_message)
+    extracted_category = extract_category(user_message)
+    extracted_gender = extract_gender(user_message)
+    extracted_year = extract_year(user_message)
+    extracted_quota = extract_quota(user_message)
+
+    branch = extracted_branch or slot_state.get("branch")
+    category = extracted_category or slot_state.get("category")
+    gender = extracted_gender or slot_state.get("gender", "Any")
+    year = extracted_year if extracted_year is not None else slot_state.get("year")
+    quota = extracted_quota or slot_state.get("quota", "Convenor")
     rank = extract_rank(user_message)
+
+    if branch:
+        slot_state["branch"] = branch
+    if category:
+        slot_state["category"] = category
+    if extracted_gender:
+        slot_state["gender"] = extracted_gender
+    if year is not None:
+        slot_state["year"] = year
+    if quota:
+        slot_state["quota"] = quota
+    _SESSION_CUTOFF_SLOT_MEMORY_BY_SESSION[session_id] = slot_state
+    _remember_session_context(session_id, user_message)
     
     logger.info(f"Extracted parameters: branch={branch}, category={category}, gender={gender}, year={year}, quota={quota}")
     
@@ -1822,14 +2683,14 @@ async def handle_cutoff_query(user_message: str, intent_result: ClassificationRe
         return ChatResponse(
             response=_build_missing_branch_response_text(language),
             intent="cutoff",
-            metadata={"error": "missing_branch"}
+            metadata={"error": "missing_branch", "language": language}
         )
     
     if not category:
         return ChatResponse(
             response=_build_missing_category_response_text(language),
             intent="cutoff", 
-            metadata={"error": "missing_category"}
+            metadata={"error": "missing_category", "language": language}
         )
     
     # Call cutoff engine with extracted parameters
@@ -1856,6 +2717,7 @@ async def handle_cutoff_query(user_message: str, intent_result: ClassificationRe
             response=response_text,
             intent="cutoff",
             metadata={
+                "language": language,
                 "branch": branch,
                 "category": category, 
                 "year": year,
@@ -1882,14 +2744,23 @@ async def handle_cutoff_query(user_message: str, intent_result: ClassificationRe
         return ChatResponse(
             response=_get_localized_text(_CUTOFF_ENGINE_ERROR_RESPONSES, language),
             intent="cutoff",
-            metadata={"error": str(e)}
+            metadata={"error": str(e), "language": language}
         )
 
-async def handle_mixed_query(user_message: str, intent_result: ClassificationResult, language: str = "en") -> ChatResponse:
+async def handle_mixed_query(
+    user_message: str,
+    intent_result: ClassificationResult,
+    language: str = "en",
+    session_id: str = "default",
+    chat_history: Optional[list[ChatTurn]] = None,
+) -> ChatResponse:
     """Handle queries that need both RAG context and cutoff data."""
     
+    contextual_query = _build_contextual_query(session_id, user_message, chat_history)
+    _remember_session_context(session_id, contextual_query)
+
     # First get RAG context
-    rag_response = await retrieve_and_respond(user_message, language)
+    rag_response = await retrieve_and_respond(contextual_query, language)
     
     # Then try to add cutoff data if relevant
     branch = extract_branch(user_message)
@@ -1903,7 +2774,7 @@ async def handle_mixed_query(user_message: str, intent_result: ClassificationRes
                 return ChatResponse(
                     response=combined_response,
                     intent="mixed",
-                    metadata={"has_cutoff": True, "branch": branch, "category": category}
+                    metadata={"has_cutoff": True, "branch": branch, "category": category, "language": language}
                 )
         except Exception as e:
             logger.warning(f"Failed to add cutoff data to mixed query: {e}")
@@ -1911,18 +2782,27 @@ async def handle_mixed_query(user_message: str, intent_result: ClassificationRes
     return ChatResponse(
         response=rag_response,
         intent="mixed",
-        metadata={"has_cutoff": False}
+        metadata={"has_cutoff": False, "language": language}
     )
 
-async def handle_informational_query(user_message: str, intent_result: ClassificationResult, language: str = "en") -> ChatResponse:
+async def handle_informational_query(
+    user_message: str,
+    intent_result: ClassificationResult,
+    language: str = "en",
+    session_id: str = "default",
+    chat_history: Optional[list[ChatTurn]] = None,
+) -> ChatResponse:
     """Handle general informational queries using RAG."""
     
     try:
-        response_text = await retrieve_and_respond(user_message, language)
+        contextual_query = _build_contextual_query(session_id, user_message, chat_history)
+        _remember_session_context(session_id, contextual_query)
+        response_text = await retrieve_and_respond(contextual_query, language)
         
         return ChatResponse(
             response=response_text,
-            intent="informational"
+            intent="informational",
+            metadata={"language": language}
         )
         
     except Exception as e:
@@ -1930,7 +2810,7 @@ async def handle_informational_query(user_message: str, intent_result: Classific
         return ChatResponse(
             response=_get_localized_text(_RAG_ERROR_RESPONSES, language),
             intent="informational",
-            metadata={"error": str(e)}
+            metadata={"error": str(e), "language": language}
         )
 
 def _get_greeting_response(language: str) -> str:
@@ -1950,11 +2830,7 @@ async def chat_stream_endpoint(request: ChatRequest):
     This provides a ChatGPT-like typing effect in the frontend.
     """
     session_id = request.session_id or "default"
-    effective_language = _resolve_effective_language(
-        session_id=session_id,
-        user_message=(request.message or "").strip(),
-        requested_language=request.language,
-    )
+    effective_language = _SESSION_LANGUAGE_BY_ID.get(session_id, _normalize_language_code(request.language))
 
     try:
         # Process the chat request normally
