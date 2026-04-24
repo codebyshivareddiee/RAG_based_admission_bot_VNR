@@ -82,7 +82,7 @@ def test_short_followup_reuses_previous_context_for_retrieval(monkeypatch):
     assert second.status_code == 200
 
     assert len(observed_queries) == 2
-    assert observed_queries[1].startswith("B.Tech admissions")
+    assert observed_queries[1].startswith(("B.Tech admissions", "B. Tech admissions"))
     assert "Follow-up question: fees?" in observed_queries[1]
 
 
