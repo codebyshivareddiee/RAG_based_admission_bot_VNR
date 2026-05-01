@@ -27,9 +27,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.config import get_settings
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 FULL_SITE_SOURCE = BASE_DIR / "VNRVJIET-admiison-site.html"
 FULL_SITE_ASSETS_DIR = BASE_DIR / "VNRVJIET-admiison-site_files"
+
+settings = get_settings()
 
 app = FastAPI(
     title="VNRVJIET Admissions Site",
@@ -168,7 +172,7 @@ async def vnr_with_chatbot():
 
         <!-- Chat Modal -->
         <div id="vnr-chat-modal">
-          <iframe src="http://localhost:8000/?fullscreen=true" title="VNRVJIET Admissions Chat" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+          <iframe src="{chatbot_url}?fullscreen=true" title="VNRVJIET Admissions Chat" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
         </div>
 
         <script>
@@ -210,6 +214,9 @@ async def vnr_with_chatbot():
         </script>
 """
         html = html.replace("</body>", f"{chat_modal}</body>", 1)
+
+    # Replace placeholder with actual chatbot URL
+    html = html.replace("{chatbot_url}", settings.CHATBOT_FULL_URL)
 
     return HTMLResponse(
         html,

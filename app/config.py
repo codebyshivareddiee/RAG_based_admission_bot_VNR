@@ -50,7 +50,8 @@ class Settings:
     # ── Server ────────────────────────────────────────────────
     HOST: str = os.getenv("HOST", "")
     PORT: int = int(os.getenv("PORT", os.getenv("APP_PORT", "0")))
-    CHATBOT_FULL_URL: str = os.getenv("CHATBOT_FULL_URL", "http://localhost:8000/")
+    SITE_PORT: int = int(os.getenv("SITE_PORT", "8001"))
+    CHATBOT_FULL_URL: str = os.getenv("CHATBOT_FULL_URL", "http://localhost:8000/").rstrip("/") + "/"
     ALLOWED_ORIGINS: list[str] = [
         o.strip()
         for o in os.getenv("ALLOWED_ORIGINS", "").split(",")

@@ -5,15 +5,36 @@ services:
     build: .
     container_name: vnrvjiet-admissions-chatbot
     ports:
-      - "${PORT}:${APP_PORT}"
+      - "${PORT:-8000}:${PORT:-8000}"
     env_file:
       - .env
     environment:
-      HOST: ${HOST}
-      PORT: ${APP_PORT}
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8000}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${APP_PORT}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-8000}/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  site:
+    build: .
+    container_name: vnrvjiet-admissions-site
+    ports:
+      - "${SITE_PORT:-8001}:${SITE_PORT:-8001}"
+    env_file:
+      - .env
+    environment:
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${SITE_PORT:-8001}
+      CHATBOT_FULL_URL: ${CHATBOT_FULL_URL:-http://localhost:8000/}
+    command: uvicorn app.site_app:app --host 0.0.0.0 --port ${SITE_PORT:-8001}
+    restart: unless-stopped
+    depends_on:
+      - chatbot
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${SITE_PORT:-8001}/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
