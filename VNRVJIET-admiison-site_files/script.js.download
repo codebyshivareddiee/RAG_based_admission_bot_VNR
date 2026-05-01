@@ -1,0 +1,73 @@
+var menuClose = document.getElementById("menu-close-tbn");
+var menuBar = document.getElementById("menubar");
+
+var videoSeeMore = document.getElementById("video-see-more");
+var videoSec = document.getElementById("video-section");
+var landingPage = document.getElementById("landing-page");
+
+function menuOpenFun() {
+  if (menuBar) {
+    menuBar.style.top = "50%";
+  }
+}
+function menuCloseFun() {
+  if (menuBar) {
+    menuBar.style.top = "-50%";
+  }
+}
+function videoMore() {
+  // videoSec.style.display = "none";
+  // landingPage.style.display = "block";
+  // alert("hello");
+}
+
+var mainNav = document.getElementById("main-nav");
+window.onscroll = function () {
+  scrollFunction();
+};
+
+function scrollFunction() {
+  if (!mainNav) {
+    return;
+  }
+
+  if (
+    document.body.scrollTop > 600 ||
+    document.documentElement.scrollTop > 600
+  ) {
+    mainNav.style.display = "block";
+  } else {
+    mainNav.style.display = "none";
+  }
+}
+// Splide carousel (guarded, as some pages do not load Splide assets)
+if (window.Splide) {
+  if (document.querySelector("#first-slider")) {
+    new Splide("#first-slider", {
+      direction: "ttb",
+      height: "280px",
+      perPage: 2,
+      perMove: 1,
+    }).mount();
+  }
+
+  if (document.querySelector("#second-slider")) {
+    new Splide("#second-slider", {
+      direction: "ttb",
+      height: "420px",
+      perPage: 3,
+      perMove: 1,
+    }).mount();
+  }
+
+  if (document.querySelector("#third-slider")) {
+    new Splide("#third-slider", {
+      direction: "ttb",
+      height: "280px",
+      type: "loop",
+      perPage: 2,
+      perMove: 1,
+    }).mount();
+  }
+}
+

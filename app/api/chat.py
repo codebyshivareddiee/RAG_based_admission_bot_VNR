@@ -228,6 +228,39 @@ _CUTOFF_ENGINE_ERROR_RESPONSES = {
     "gu": "માફ કરશો, cutoff data મેળવવામાં ભૂલ થઈ. કૃપા કરીને ફરી પ્રયાસ કરો અથવા support નો સંપર્ક કરો.",
 }
 
+_CUTOFF_SCOPE_NOTE_RESPONSES = {
+    "en": "Note: Available cutoff ranks are only for B.Tech admissions under Convener quota.",
+    "hi": "नोट: उपलब्ध कटऑफ रैंक केवल B.Tech प्रवेश के लिए, और केवल Convener quota के अंतर्गत हैं।",
+    "te": "గమనిక: అందుబాటులో ఉన్న cutoff ranks కేవలం B.Tech admissions లో Convener quota కి మాత్రమే వర్తిస్తాయి.",
+    "ta": "குறிப்பு: கிடைக்கும் cutoff ranks, B.Tech சேர்க்கைக்கான Convener quota-க்கு மட்டுமே பொருந்தும்.",
+    "mr": "नोंद: उपलब्ध cutoff ranks फक्त B.Tech प्रवेशासाठी आणि केवळ Convener quota साठीच लागू आहेत.",
+    "kn": "ಸೂಚನೆ: ಲಭ್ಯ cutoff ranks ಗಳು ಕೇವಲ B.Tech ಪ್ರವೇಶದ Convener quota ಗೆ ಮಾತ್ರ ಅನ್ವಯಿಸುತ್ತವೆ.",
+    "bn": "নোট: উপলব্ধ cutoff rank শুধুমাত্র B.Tech ভর্তি এবং Convener quota-এর জন্য প্রযোজ্য।",
+    "gu": "નોંધ: ઉપલબ્ધ cutoff ranks માત્ર B.Tech પ્રવેશ માટે અને ફક્ત Convener quota માટે જ લાગુ પડે છે.",
+}
+
+_CUTOFF_PROGRAM_UNAVAILABLE_RESPONSES = {
+    "en": "Cutoff rank information is available only for B.Tech admissions. No cutoff information is available for the requested program.",
+    "hi": "कटऑफ रैंक जानकारी केवल B.Tech प्रवेश के लिए उपलब्ध है। मांगे गए प्रोग्राम के लिए कटऑफ जानकारी उपलब्ध नहीं है।",
+    "te": "Cutoff rank సమాచారం కేవలం B.Tech admissions కి మాత్రమే అందుబాటులో ఉంది. మీరు అడిగిన ప్రోగ్రామ్‌కు cutoff సమాచారం లేదు.",
+    "ta": "Cutoff rank தகவல் B.Tech சேர்க்கைக்கே மட்டுமே கிடைக்கும். கேட்டுள்ள பிரோகிராமுக்கு cutoff தகவல் இல்லை.",
+    "mr": "Cutoff rank माहिती फक्त B.Tech प्रवेशासाठी उपलब्ध आहे. तुम्ही विचारलेल्या प्रोग्रामसाठी cutoff माहिती उपलब्ध नाही.",
+    "kn": "Cutoff rank ಮಾಹಿತಿ ಕೇವಲ B.Tech ಪ್ರವೇಶಕ್ಕೆ ಮಾತ್ರ ಲಭ್ಯ. ಕೇಳಿದ ಕಾರ್ಯಕ್ರಮಕ್ಕೆ cutoff ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ.",
+    "bn": "Cutoff rank তথ্য শুধুমাত্র B.Tech ভর্তির জন্য উপলব্ধ। অনুরোধ করা প্রোগ্রামের জন্য cutoff তথ্য নেই।",
+    "gu": "Cutoff rank માહિતી માત્ર B.Tech પ્રવેશ માટે ઉપલબ્ધ છે. પૂછાયેલા પ્રોગ્રામ માટે cutoff માહિતી ઉપલબ્ધ નથી.",
+}
+
+_CUTOFF_QUOTA_UNAVAILABLE_RESPONSES = {
+    "en": "Cutoff rank information is available only for Convener quota in B.Tech. No cutoff information is available for the requested quota.",
+    "hi": "कटऑफ रैंक जानकारी B.Tech में केवल Convener quota के लिए उपलब्ध है। मांगे गए quota के लिए कटऑफ जानकारी उपलब्ध नहीं है।",
+    "te": "Cutoff rank సమాచారం B.Tech లో కేవలం Convener quota కి మాత్రమే అందుబాటులో ఉంది. మీరు అడిగిన quota కు cutoff సమాచారం లేదు.",
+    "ta": "Cutoff rank தகவல் B.Tech-இல் Convener quota-க்கு மட்டுமே கிடைக்கும். கேட்டுள்ள quota-க்கு cutoff தகவல் இல்லை.",
+    "mr": "Cutoff rank माहिती B.Tech मध्ये फक्त Convener quota साठी उपलब्ध आहे. तुम्ही विचारलेल्या quota साठी cutoff माहिती उपलब्ध नाही.",
+    "kn": "Cutoff rank ಮಾಹಿತಿ B.Tech ನಲ್ಲಿ ಕೇವಲ Convener quota ಗಾಗಿ ಮಾತ್ರ ಲಭ್ಯ. ಕೇಳಿದ quota ಗೆ cutoff ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ.",
+    "bn": "Cutoff rank তথ্য B.Tech-এ শুধুমাত্র Convener quota-এর জন্য উপলব্ধ। অনুরোধ করা quota-এর জন্য cutoff তথ্য নেই।",
+    "gu": "Cutoff rank માહિતી B.Tech માં માત્ર Convener quota માટે ઉપલબ્ધ છે. પૂછાયેલા quota માટે cutoff માહિતી ઉપલબ્ધ નથી.",
+}
+
 _AMBIGUOUS_CONTEXT_PROMPTS = {
     "en": "Could you clarify which program or topic you mean (for example, B.Tech fees or hostel information)?",
     "hi": "कृपया बताएं आप किस प्रोग्राम या विषय के बारे में पूछ रहे हैं (जैसे B.Tech की फीस या हॉस्टल जानकारी)?",
@@ -968,7 +1001,10 @@ def _get_document_category_prefix(category_key: str, language: str) -> str:
 def _normalize_selection_text(text: str) -> str:
     """Normalize button/typed selection text for robust matching."""
     lowered = text.strip().lower()
+    # Normalize common unicode dashes to ascii hyphen before cleanup.
+    lowered = re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2212]", "-", lowered)
     lowered = lowered.replace("&", " and ").replace("/", " ")
+    lowered = lowered.replace("_", "-")
     lowered = re.sub(r"[()\-.:]", " ", lowered)
     lowered = re.sub(r"\s+", " ", lowered)
     return lowered.strip()
@@ -1670,6 +1706,36 @@ def _extract_document_category_selection(message: str, allow_numeric: bool = Tru
     return None
 
 
+def _extract_cutoff_program_scope(message: str) -> Optional[str]:
+    """Detect explicit program mention for cutoff queries (btech/mtech/mba_mca/other)."""
+    program = _extract_document_program_selection(message, allow_numeric=False)
+    if program:
+        return program
+
+    normalized = re.sub(r"\s+", " ", (message or "").strip().lower())
+    if re.search(r"\bb\.?\s*e\b|\bbachelor\s+of\s+engineering\b", normalized):
+        return "btech"
+    if re.search(r"\bm\.?\s*e\b|\bmasters?\b|\bpost\s*graduate\b|\bpg\b", normalized):
+        return "other"
+    if re.search(r"\bph\.?d\b|\bdoctorate\b|\bdiploma\b", normalized):
+        return "other"
+    return None
+
+
+def _is_non_convenor_quota_request(message: str, extracted_quota: Optional[str]) -> bool:
+    """Return True if user explicitly asks cutoff for non-convener quota."""
+    if extracted_quota and extracted_quota != "Convenor":
+        return True
+
+    normalized = re.sub(r"\s+", " ", (message or "").strip().lower())
+    return bool(
+        re.search(
+            r"\b(management|category\s*-?\s*b|nri|sports|cap|ncc|supernumerary|quota\s*-?\s*b)\b",
+            normalized,
+        )
+    )
+
+
 def _build_document_program_prompt_response(language: str) -> ChatResponse:
     """Build program selection prompt with clickable options for documents flow."""
     prompt_text = _get_localized_text(_DOCUMENT_PROGRAM_PROMPTS, language)
@@ -2016,7 +2082,9 @@ def _build_guided_prompt(prompt: str, options: list[dict], intent: str = "cutoff
 
 def _resolve_selected_option(user_message: str, options: list[dict]) -> str | None:
     """Resolve selected option value from click payload or typed label/value text."""
-    candidate = user_message.strip().lower()
+    raw_candidate = user_message.strip()
+    candidate = raw_candidate.lower()
+    candidate_normalized = _normalize_selection_text(raw_candidate)
     if not candidate:
         return None
 
@@ -2024,6 +2092,11 @@ def _resolve_selected_option(user_message: str, options: list[dict]) -> str | No
         value = str(option.get("value", ""))
         label = str(option.get("label", ""))
         if candidate == value.lower() or candidate == label.lower():
+            return value
+
+        value_normalized = _normalize_selection_text(value)
+        label_normalized = _normalize_selection_text(label)
+        if candidate_normalized == value_normalized or candidate_normalized == label_normalized:
             return value
     return None
 
@@ -2133,6 +2206,24 @@ async def _handle_guided_cutoff_flow(
 ) -> Optional[ChatResponse]:
     """Guided cutoff flow: branch -> year -> category -> gender -> final response."""
     state = _CUTOFF_FLOW_STATE_BY_SESSION.get(session_id)
+
+    # Policy: cutoff ranks are only for B.Tech + Convener quota.
+    scoped_program = _extract_cutoff_program_scope(user_message)
+    if scoped_program and scoped_program != "btech":
+        _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+        return ChatResponse(
+            response=_get_localized_text(_CUTOFF_PROGRAM_UNAVAILABLE_RESPONSES, language),
+            intent="cutoff",
+            metadata={"language": language, "scope_restricted": True, "program": scoped_program},
+        )
+
+    if _is_non_convenor_quota_request(user_message, extract_quota(user_message)):
+        _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+        return ChatResponse(
+            response=_get_localized_text(_CUTOFF_QUOTA_UNAVAILABLE_RESPONSES, language),
+            intent="cutoff",
+            metadata={"language": language, "scope_restricted": True, "quota": "non-convenor"},
+        )
 
     if state is None:
         if not _is_cutoff_like_query(user_message):
@@ -2655,6 +2746,22 @@ async def handle_cutoff_query(
     extracted_gender = extract_gender(user_message)
     extracted_year = extract_year(user_message)
     extracted_quota = extract_quota(user_message)
+    scoped_program = _extract_cutoff_program_scope(user_message)
+
+    # Policy: only B.Tech + Convener quota cutoff data is supported.
+    if scoped_program and scoped_program != "btech":
+        return ChatResponse(
+            response=_get_localized_text(_CUTOFF_PROGRAM_UNAVAILABLE_RESPONSES, language),
+            intent="cutoff",
+            metadata={"language": language, "scope_restricted": True, "program": scoped_program},
+        )
+
+    if _is_non_convenor_quota_request(user_message, extracted_quota):
+        return ChatResponse(
+            response=_get_localized_text(_CUTOFF_QUOTA_UNAVAILABLE_RESPONSES, language),
+            intent="cutoff",
+            metadata={"language": language, "scope_restricted": True, "quota": "non-convenor"},
+        )
 
     branch = extracted_branch or slot_state.get("branch")
     category = extracted_category or slot_state.get("category")
@@ -2709,7 +2816,8 @@ async def handle_cutoff_query(
         has_data = bool(result.found) or bool(result.all_results) or (result.cutoff_rank is not None)
         
         if has_data:
-            response_text = result.message
+            scope_note = _get_localized_text(_CUTOFF_SCOPE_NOTE_RESPONSES, language)
+            response_text = f"{scope_note}\n\n{result.message}"
         else:
             response_text = result.message or _build_missing_category_response_text(language)
         
@@ -2755,6 +2863,22 @@ async def handle_mixed_query(
     chat_history: Optional[list[ChatTurn]] = None,
 ) -> ChatResponse:
     """Handle queries that need both RAG context and cutoff data."""
+
+    # Policy guard for cutoff mentions in mixed queries.
+    if _is_cutoff_like_query(user_message):
+        scoped_program = _extract_cutoff_program_scope(user_message)
+        if scoped_program and scoped_program != "btech":
+            return ChatResponse(
+                response=_get_localized_text(_CUTOFF_PROGRAM_UNAVAILABLE_RESPONSES, language),
+                intent="mixed",
+                metadata={"has_cutoff": False, "language": language, "scope_restricted": True},
+            )
+        if _is_non_convenor_quota_request(user_message, extract_quota(user_message)):
+            return ChatResponse(
+                response=_get_localized_text(_CUTOFF_QUOTA_UNAVAILABLE_RESPONSES, language),
+                intent="mixed",
+                metadata={"has_cutoff": False, "language": language, "scope_restricted": True},
+            )
     
     contextual_query = _build_contextual_query(session_id, user_message, chat_history)
     _remember_session_context(session_id, contextual_query)
@@ -2770,7 +2894,8 @@ async def handle_mixed_query(
         try:
             cutoff_result = get_cutoff(branch=branch, category=category, language=language)
             if cutoff_result.found:
-                combined_response = rag_response + "\n\n" + cutoff_result.message
+                scope_note = _get_localized_text(_CUTOFF_SCOPE_NOTE_RESPONSES, language)
+                combined_response = rag_response + "\n\n" + scope_note + "\n\n" + cutoff_result.message
                 return ChatResponse(
                     response=combined_response,
                     intent="mixed",

@@ -244,9 +244,13 @@ python -m app.rag.ingest --docs-dir docs --source website --year 2025
 python railway_start.py
 ```
 
-### 7. Open the widget
+### 7. Open the pages
 
-Visit **http://localhost:<PORT>/widget** in your browser.
+Visit **http://localhost:<PORT>/** for the standalone full chatbot website.
+
+Visit **http://localhost:<PORT>/site** for the VNRVJIET page that embeds the chatbot site in an iframe.
+
+Visit **http://localhost:<PORT>/widget** for the standalone compact widget test view.
 
 API docs at **http://localhost:<PORT>/docs**.
 
@@ -413,16 +417,20 @@ docker-compose up -d --build
 
 ## Embed on College Website
 
-Add to any page on `vnrvjiet.ac.in`:
+The college website should iframe the VNRVJIET wrapper page, and that wrapper page should iframe the full chatbot site.
 
 ```html
 <iframe
-  src="https://YOUR_DOMAIN/widget"
-  style="position:fixed;bottom:0;right:0;width:420px;height:640px;border:none;z-index:9999;"
+  src="https://YOUR_DOMAIN/site"
+  style="width:100%;height:100vh;border:none;"
   sandbox="allow-scripts allow-same-origin allow-forms"
-  title="VNRVJIET Admissions Chat"
+  title="VNRVJIET Admissions Site"
 ></iframe>
 ```
+
+Set `CHATBOT_FULL_URL` to the chatbot site URL, for example `http://localhost:8000/` in development.
+
+Use `https://YOUR_DOMAIN/widget` when you want the compact widget-only test view.
 
 See `embed_snippet.html` for more options.
 
@@ -433,8 +441,11 @@ See `embed_snippet.html` for more options.
 | POST | `/api/chat` | Send a message, get a response (supports all languages) |
 | GET | `/api/health` | Health check |
 | GET | `/api/branches` | List available branches |
-| GET | `/api/session/{session_id}/history` | View conversation history for a session (NEW) |
-| GET | `/api/sessions` | List all active sessions (NEW) |
+| GET | `/` | Standalone full chatbot website |
+| GET | `/site` | VNRVJIET page that embeds the chatbot website |
+| GET | `/chat` | Alias for the standalone full chatbot websit sessions (NEW) |
+| GET | `/site` | Full admissions page with embedded compact chat dock |
+| GET | `/chat` | Full-screen chatbot page |
 | GET | `/widget` | Chat widget HTML page |
 | GET | `/admin/contacts` | Admin dashboard for contact requests |
 | GET | `/admin/contacts/export` | Export contact requests to CSV |
@@ -627,6 +638,7 @@ curl "http://localhost:${PORT}/api/sessions"
 | `PINECONE_ENVIRONMENT` | Pinecone region | us-east-1 |
 | `HOST` | Server bind host | — |
 | `PORT` | Public/bind port used by runtime | — |
+| `CHATBOT_FULL_URL` | Full chatbot site URL used by the VNR wrapper iframe | http://localhost:8000/ |
 | `APP_PORT` | Internal app port (useful for Docker compose) | — |
 | `FIREBASE_PROJECT_ID` | Firebase project ID | — |
 | `FIREBASE_CREDENTIALS` | Path to Firebase service account JSON | — |

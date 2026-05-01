@@ -316,6 +316,32 @@ html, body {
   background: rgba(255,255,255,0.4);
 }
 
+.chat-header .fullscreen-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.chat-header .fullscreen-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: scale(1.05);
+}
+
+.chat-header .fullscreen-btn:active {
+  transform: scale(0.92);
+  background: rgba(255,255,255,0.4);
+}
+
 /* Chat reset animation */
 @keyframes fadeInUp {
   from {

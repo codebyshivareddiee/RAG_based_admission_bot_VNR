@@ -18,6 +18,7 @@
   const container = document.getElementById("chat-container");
   const closeBtn = document.getElementById("chat-close");
   const homeBtn = document.getElementById("home-btn");
+  const fullscreenBtn = document.getElementById("fullscreen-btn");
   const messagesEl = document.getElementById("chat-messages");
   const inputEl = document.getElementById("chat-input");
   const sendBtn = document.getElementById("chat-send");
@@ -707,8 +708,12 @@
 
   function toggleChat() {
     isOpen = !isOpen;
-    container.classList.toggle("visible", isOpen);
-    toggleBtn.classList.toggle("open", isOpen);
+    if (container) {
+      container.classList.toggle("visible", isOpen);
+    }
+    if (toggleBtn) {
+      toggleBtn.classList.toggle("open", isOpen);
+    }
 
     if (isOpen) {
       // Show welcome if first time
@@ -716,7 +721,7 @@
         showWelcome();
       }
       // Only focus input if it's visible
-      if (inputArea.style.display !== "none") {
+      if (inputArea && inputArea.style.display !== "none" && inputEl) {
         inputEl.focus();
       }
     } else {
@@ -729,8 +734,12 @@
   function openChat() {
     if (!isOpen) {
       isOpen = true;
-      container.classList.add("visible");
-      toggleBtn.classList.add("open");
+      if (container) {
+        container.classList.add("visible");
+      }
+      if (toggleBtn) {
+        toggleBtn.classList.add("open");
+      }
     }
   }
 
@@ -738,11 +747,19 @@
   function closeChat() {
     if (isOpen) {
       isOpen = false;
-      container.classList.remove("visible");
-      toggleBtn.classList.remove("open");
+      if (container) {
+        container.classList.remove("visible");
+      }
+      if (toggleBtn) {
+        toggleBtn.classList.remove("open");
+      }
       // Stop speech when closing
       stopSpeech();
     }
+  }
+
+  function openFullscreenChat() {
+    window.open("/?fullscreen=true", "_blank", "noopener,noreferrer");
   }
 
   // ── Category definitions with follow-up questions ──────────
@@ -821,7 +838,7 @@
     addLanguageChangeButton();
     
     // Hide input area when showing welcome buttons
-    inputArea.style.display = "none";
+    hideInputArea();
   }
 
   /** Show language selector on first interaction */
@@ -830,7 +847,7 @@
     addBotMessage(t("language_prompt"));
     
     // Hide input area when showing language selector
-    inputArea.style.display = "none";
+    hideInputArea();
     
     const wrapper = document.createElement("div");
     wrapper.className = "message bot";
@@ -1575,10 +1592,14 @@
     messagesEl.innerHTML = "";
     
     // Hide input area
-    inputArea.style.display = "none";
-    inputEl.value = "";
-    inputEl.disabled = false;
-    sendBtn.disabled = false;
+    hideInputArea();
+    if (inputEl) {
+      inputEl.value = "";
+      inputEl.disabled = false;
+    }
+    if (sendBtn) {
+      sendBtn.disabled = false;
+    }
     
     // Show welcome screen
     showWelcome();
@@ -1790,8 +1811,12 @@
     // Always show and enable input area after bot message
     // This ensures users can type their answers during conversation flows
     showInputArea();
-    inputEl.disabled = false;
-    sendBtn.disabled = false;
+    if (inputEl) {
+      inputEl.disabled = false;
+    }
+    if (sendBtn) {
+      sendBtn.disabled = false;
+    }
   }
 
   function addUserMessage(text) {
@@ -1885,10 +1910,20 @@
   }
 
   /** Show the input area (hidden until user picks a category) */
+  function hideInputArea() {
+    if (inputArea) {
+      inputArea.style.display = "none";
+    }
+  }
+
   function showInputArea() {
+    if (!inputArea) {
+      return;
+    }
+
     inputArea.style.display = "";
     // Focus on input field when shown (if chat is open)
-    if (isOpen) {
+    if (isOpen && inputEl) {
       setTimeout(() => inputEl.focus(), 100);
     }
   }
@@ -2190,12 +2225,46 @@
     }
   }
 
+  // ── Detect Fullscreen Mode ───────────────────────────────────
+  // Check if fullscreen=true parameter is in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const isFullscreenMode = urlParams.get("fullscreen") === "true";
 
+  if (isFullscreenMode) {
+    // Hide the floating toggle button in fullscreen mode
+    if (toggleBtn) {
+      toggleBtn.style.display = "none";
+    }
+    // Hide the welcome popup in fullscreen mode
+    if (welcomePopup) {
+      welcomePopup.style.display = "none";
+    }
+    // Show the chat container immediately in fullscreen mode
+    isOpen = true;
+    container.classList.add("visible");
+
+    // Keep the original onboarding flow in fullscreen mode.
+    // This starts with language selection and category buttons.
+    if (messagesEl && messagesEl.children.length === 0) {
+      showWelcome();
+    }
+  }
 
   // ── Event Listeners ──────────────────────────────────────────
 
-  toggleBtn.addEventListener("click", toggleChat);
-  closeBtn.addEventListener("click", toggleChat);
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", toggleChat);
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (isFullscreenMode) {
+        void returnToHome();
+        return;
+      }
+      toggleChat();
+    });
+  }
 
   // Close popup button - simple and direct
   if (popupClose) {
@@ -2219,48 +2288,71 @@
     }
   }
   
-  homeBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    void returnToHome();
-  });
+  if (homeBtn) {
+    homeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void returnToHome();
+    });
+  }
+
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openFullscreenChat();
+    });
+  }
   
-  micBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleSpeechRecognition();
-  });
+  if (micBtn) {
+    micBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSpeechRecognition();
+    });
+  }
 
-  sendBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    sendMessage(inputEl.value);
-  });
-
-  inputEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  if (sendBtn) {
+    sendBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
       sendMessage(inputEl.value);
-    }
-  });
+    });
+  }
+
+  if (inputEl) {
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(inputEl.value);
+      }
+    });
+  }
 
   // Close widget when clicking outside (improved to prevent accidental closures)
   document.addEventListener("click", (e) => {
     if (!isOpen) return;
     
     // Check if click is outside both the container and toggle button
-    const clickedInsideContainer = container.contains(e.target);
-    const clickedToggleBtn = toggleBtn.contains(e.target);
+    const clickedInsideContainer = container ? container.contains(e.target) : false;
+    const clickedToggleBtn = toggleBtn ? toggleBtn.contains(e.target) : false;
     const clickedInsidePopup = welcomePopup && welcomePopup.contains(e.target);
     
     // Only close if click is truly outside all chat-related elements
     if (!clickedInsideContainer && !clickedToggleBtn && !clickedInsidePopup) {
       isOpen = false;
-      container.classList.remove("visible");
-      toggleBtn.classList.remove("open");
+      if (container) {
+        container.classList.remove("visible");
+      }
+      if (toggleBtn) {
+        toggleBtn.classList.remove("open");
+      }
     }
   });
 
   // ── Accessibility ────────────────────────────────────────────
-  toggleBtn.setAttribute("aria-label", "Open chat");
-  closeBtn.setAttribute("aria-label", "Close chat");
+  if (toggleBtn) {
+    toggleBtn.setAttribute("aria-label", "Open chat");
+  }
+  if (closeBtn) {
+    closeBtn.setAttribute("aria-label", "Close chat");
+  }
   
   // ── Page Visibility Handler ──────────────────────────────────
   // Stop speech when user switches tabs or minimizes browser
