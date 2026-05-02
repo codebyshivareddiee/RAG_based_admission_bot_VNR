@@ -172,7 +172,7 @@ async def vnr_with_chatbot():
 
         <!-- Chat Modal -->
         <div id="vnr-chat-modal">
-          <iframe src="{chatbot_url}?fullscreen=true" title="VNRVJIET Admissions Chat" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+          <iframe src="{chatbot_url}?fullscreen=true" title="VNRVJIET Admissions Chat" sandbox="allow-scripts allow-forms allow-popups"></iframe>
         </div>
 
         <script>
