@@ -127,6 +127,32 @@ class Settings:
         "mathematics": "https://vnrvjiet.ac.in/mathematics-and-management-sciences/",
     }
 
+    # ── Supported Languages ───────────────────────────────────
+    ENABLE_ENGLISH: bool = os.getenv("ENABLE_ENGLISH", "true").lower() == "true"
+    ENABLE_HINDI: bool = os.getenv("ENABLE_HINDI", "true").lower() == "true"
+    ENABLE_TELUGU: bool = os.getenv("ENABLE_TELUGU", "true").lower() == "true"
+    ENABLE_TAMIL: bool = os.getenv("ENABLE_TAMIL", "true").lower() == "true"
+    ENABLE_MARATHI: bool = os.getenv("ENABLE_MARATHI", "true").lower() == "true"
+    ENABLE_KANNADA: bool = os.getenv("ENABLE_KANNADA", "true").lower() == "true"
+    ENABLE_MICROPHONE: bool = os.getenv("ENABLE_MICROPHONE", "true").lower() == "true"
+
+    def get_enabled_languages(self) -> dict[str, dict]:
+        """Return only enabled languages with their metadata."""
+        all_languages = {
+            "en": {"name": "English", "native": "English", "flag": "🇬🇧", "enabled": self.ENABLE_ENGLISH},
+            "hi": {"name": "Hindi", "native": "हिन्दी", "flag": "🇮🇳", "enabled": self.ENABLE_HINDI},
+            "te": {"name": "Telugu", "native": "తెలుగు", "flag": "🇮🇳", "enabled": self.ENABLE_TELUGU},
+            "ta": {"name": "Tamil", "native": "தமிழ்", "flag": "🇮🇳", "enabled": self.ENABLE_TAMIL},
+            "mr": {"name": "Marathi", "native": "मराठी", "flag": "🇮🇳", "enabled": self.ENABLE_MARATHI},
+            "kn": {"name": "Kannada", "native": "ಕನ್ನಡ", "flag": "🇮🇳", "enabled": self.ENABLE_KANNADA},
+        }
+        return {code: info for code, info in all_languages.items() if info["enabled"]}
+
+    def get_enabled_language_names(self) -> list[str]:
+        """Return list of enabled language names for disclaimer."""
+        enabled = self.get_enabled_languages()
+        return [info["name"] for info in enabled.values()]
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
