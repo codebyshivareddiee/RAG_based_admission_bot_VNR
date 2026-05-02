@@ -16,7 +16,6 @@
   // ── DOM References ───────────────────────────────────────────
   const toggleBtn = document.getElementById("chat-toggle");
   const container = document.getElementById("chat-container");
-  const closeBtn = document.getElementById("chat-close");
   const homeBtn = document.getElementById("home-btn");
   const fullscreenBtn = document.getElementById("fullscreen-btn");
   const messagesEl = document.getElementById("chat-messages");
@@ -759,7 +758,14 @@
   }
 
   function openFullscreenChat() {
-    window.open("/?fullscreen=true", "_blank", "noopener,noreferrer");
+    // Open the full admissions site (chat embedded) in a new tab
+    try {
+      const target = window.location.origin + '/?fullscreen=true';
+      window.open(target, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      // Fallback to root if constructing origin fails
+      window.open('/?fullscreen=true', "_blank", "noopener,noreferrer");
+    }
   }
 
   // ── Category definitions with follow-up questions ──────────
@@ -2255,16 +2261,7 @@
   if (toggleBtn) {
     toggleBtn.addEventListener("click", toggleChat);
   }
-  if (closeBtn) {
-    closeBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (isFullscreenMode) {
-        void returnToHome();
-        return;
-      }
-      toggleChat();
-    });
-  }
+  /* Close button removed — click handling via toggle and outside-click remains */
 
   // Close popup button - simple and direct
   if (popupClose) {
@@ -2350,9 +2347,7 @@
   if (toggleBtn) {
     toggleBtn.setAttribute("aria-label", "Open chat");
   }
-  if (closeBtn) {
-    closeBtn.setAttribute("aria-label", "Close chat");
-  }
+  /* chat-close element removed from DOM */
   
   // ── Page Visibility Handler ──────────────────────────────────
   // Stop speech when user switches tabs or minimizes browser
