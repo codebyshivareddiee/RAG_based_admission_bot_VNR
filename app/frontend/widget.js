@@ -703,6 +703,23 @@
     return html;
   }
 
+  /**
+   * Remove list-style selection text when the backend also provided buttons.
+   * This keeps the prompt visible while hiding duplicated textual options.
+   */
+  function stripSelectionMenuText(text) {
+    if (!text) return text;
+
+    const lines = text.split("\n");
+    const optionStart = lines.findIndex((line) => /^\s*(?:[-•]|\d+\.)\s+/.test(line));
+
+    if (optionStart === -1) {
+      return text;
+    }
+
+    return lines.slice(0, optionStart).join("\n").trimEnd();
+  }
+
   // ── UI Functions ─────────────────────────────────────────────
 
   function toggleChat() {
@@ -2209,13 +2226,21 @@
         bubble.appendChild(srcSpan);
       }
 
+      const displayReply = options && options.length > 0
+        ? stripSelectionMenuText(fullReply)
+        : fullReply;
+
+      if (displayReply && displayReply.trim()) {
+        content.innerHTML = renderMarkdown(displayReply.trim());
+      }
+
       // Render clickable options if available
       if (options && options.length > 0) {
         renderClickableOptions(options, bubble);
       }
 
-      if (fullReply && fullReply.trim()) {
-        chatHistory.push({ role: "assistant", content: fullReply.trim() });
+      if (displayReply && displayReply.trim()) {
+        chatHistory.push({ role: "assistant", content: displayReply.trim() });
       }
 
     } catch (err) {
