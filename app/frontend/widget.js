@@ -25,6 +25,7 @@
   const inputArea = document.getElementById("chat-input-area");
   const welcomePopup = document.getElementById("welcome-popup");
   const popupClose = document.getElementById("popup-close");
+  const disclaimerEl = document.getElementById("chat-disclaimer");
   let typingEl = null;
 
   // ── State ────────────────────────────────────────────────────
@@ -59,6 +60,53 @@
   // Chat history is preserved in this session for context-aware responses
   // The backend automatically uses conversation history for better answers
   const chatHistory = [];
+
+  // ── Language Configuration ───────────────────────────────────
+  let enabledLanguagesConfig = null;
+  let languagesConfigLoaded = false;
+  let languagesConfigPromise = null;
+  let micEnabled = true;
+  let dynamicDisclaimer = "⚠️ Official assistant for VNRVJIET. Information is for guidance only. Multilingual chatbot - Available in English, Hindi, Telugu, Tamil, Marathi, Kannada & more.";
+
+  // Fetch enabled languages from backend on init
+  async function fetchEnabledLanguages() {
+    if (languagesConfigLoaded) {
+      return enabledLanguagesConfig;
+    }
+    if (languagesConfigPromise) {
+      return languagesConfigPromise;
+    }
+
+    languagesConfigPromise = (async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/config/languages`);
+      if (response.ok) {
+        const data = await response.json();
+        enabledLanguagesConfig = data.languages;
+        dynamicDisclaimer = data.disclaimer;
+        micEnabled = data.mic_enabled !== false;
+        console.log("Enabled languages loaded:", Object.keys(enabledLanguagesConfig));
+        
+        // Update disclaimer in DOM
+        if (disclaimerEl) {
+          disclaimerEl.textContent = dynamicDisclaimer;
+        }
+        if (micBtn) {
+          micBtn.style.display = micEnabled ? "flex" : "none";
+          micBtn.disabled = !micEnabled;
+        }
+        languagesConfigLoaded = true;
+        return enabledLanguagesConfig;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch language config:", err);
+    }
+    languagesConfigLoaded = true;
+    return enabledLanguagesConfig;
+    })();
+
+    return languagesConfigPromise;
+  }
 
   // ── Language Support ─────────────────────────────────────────
   const SUPPORTED_LANGUAGES = {
@@ -839,13 +887,25 @@
     ];
   }
 
-  function showWelcome() {
+  async function showWelcome() {
     console.log("showWelcome called, languageSelected:", languageSelected);
+
+    if (!languagesConfigLoaded) {
+      await fetchEnabledLanguages();
+    }
     
     // Show language selector if not yet selected
     if (!languageSelected) {
       console.log("Showing language selector");
       showLanguageSelector();
+
+    if (micBtn) {
+      micBtn.style.display = micEnabled ? "flex" : "none";
+      micBtn.disabled = !micEnabled;
+      if (!micEnabled) {
+        micBtn.title = "Voice input disabled";
+      }
+    }
       return;
     }
     
@@ -879,7 +939,12 @@
     grid.className = "language-buttons";
     grid.style.cssText = "display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 300px;";
 
-    Object.entries(SUPPORTED_LANGUAGES).forEach(([code, info]) => {
+    // Use enabled languages if available, otherwise fall back to all supported languages
+    const langsToShow = enabledLanguagesConfig && Object.keys(enabledLanguagesConfig).length > 0 
+      ? enabledLanguagesConfig 
+      : SUPPORTED_LANGUAGES;
+
+    Object.entries(langsToShow).forEach(([code, info]) => {
       const btn = document.createElement("button");
       btn.className = "language-btn";
       btn.style.cssText = (
@@ -916,7 +981,7 @@
     messagesEl.appendChild(wrapper);
     scrollToBottom();
     
-    console.log("Language selector displayed with", Object.keys(SUPPORTED_LANGUAGES).length, "languages");
+    console.log("Language selector displayed with", Object.keys(langsToShow).length, "languages");
   }
 
   /** Add language change button to allow users to switch language */
@@ -1945,6 +2010,10 @@
     }
 
     inputArea.style.display = "";
+    if (micBtn) {
+      micBtn.style.display = micEnabled ? "flex" : "none";
+      micBtn.disabled = !micEnabled;
+    }
     // Focus on input field when shown (if chat is open)
     if (isOpen && inputEl) {
       setTimeout(() => inputEl.focus(), 100);
@@ -2281,6 +2350,9 @@
     }
   }
 
+  // ── Initialize Language Configuration ──────────────────────
+  void fetchEnabledLanguages();
+
   // ── Event Listeners ──────────────────────────────────────────
 
   if (toggleBtn) {
@@ -2325,8 +2397,12 @@
   }
   
   if (micBtn) {
+    if (!micEnabled) {
+      micBtn.style.display = "none";
+    }
     micBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (!micEnabled) return;
       toggleSpeechRecognition();
     });
   }
@@ -2389,7 +2465,9 @@
 
   // ── Initialize Speech Recognition ────────────────────────────
   // Initialize STT when page loads (will check browser support)
-  initSpeechRecognition();
+  if (micEnabled) {
+    initSpeechRecognition();
+  }
   
   // Initialize microphone with simple icon (no state changes)
   if (micBtn) {

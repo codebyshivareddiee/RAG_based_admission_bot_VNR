@@ -657,7 +657,7 @@ _GUIDED_BRANCH_DISPLAY_BY_CANONICAL = {
     "AID": "AI & Data Science (AID)",
     "AUT": "Automobile Engineering (AUT)",
     "BIO": "Biotechnology (BIO)",
-    "RAI": "AI & Robotics (RAI)",
+    "RAI": "Robotics & AI (RAI)",
     "CSB": "Computer Science & Business Systems (CSB)",
     "EIE": "Electronics & Instrumentation Engineering (EIE)",
     "VLSI": "VLSI Design (VLSI)",
@@ -2606,6 +2606,18 @@ async def reset_chat_session(request: ChatRequest):
     session_id = request.session_id or "default"
     _reset_guided_session_state(session_id)
     return {"ok": True}
+
+@router.get("/config/languages")
+async def get_enabled_languages():
+    """Return list of enabled languages for the chatbot."""
+    enabled = settings.get_enabled_languages()
+    language_names = settings.get_enabled_language_names()
+    return {
+        "languages": enabled,
+        "language_names": language_names,
+        "mic_enabled": settings.ENABLE_MICROPHONE,
+        "disclaimer": f"⚠️ Official assistant for VNRVJIET. Information is for guidance only. Multilingual chatbot - Available in {', '.join(language_names)} & more." if language_names else "⚠️ Official assistant for VNRVJIET. Information is for guidance only."
+    }
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest) -> ChatResponse:
