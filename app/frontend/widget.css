@@ -509,10 +509,12 @@ html, body {
 }
 
 .message .timestamp {
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: #999;
   margin-top: 4px;
   display: block;
+  font-style: italic;
+  opacity: 0.75;
 }
 
 .message.user .timestamp {
