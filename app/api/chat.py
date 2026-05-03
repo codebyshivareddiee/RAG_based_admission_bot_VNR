@@ -18,6 +18,7 @@ import asyncio
 
 from app.classifier.intent_classifier import classify, ClassificationResult, IntentType
 from app.logic.cutoff_engine import (
+    _get_department_url,
     get_cutoff,
     get_available_branches,
     get_cutoffs_flexible,
@@ -216,6 +217,7 @@ _NO_CONTEXT_FOLLOWUP_QUESTIONS = {
 }
 
 _OFFICIAL_WEBSITE_URL = "https://vnrvjiet.ac.in/"
+_OFFICIAL_LINK_LABEL = "Click here to know more"
 
 _CUTOFF_ENGINE_ERROR_RESPONSES = {
     "en": "Sorry, there was an error retrieving cutoff data. Please try again or contact support.",
@@ -591,6 +593,200 @@ _DOCUMENT_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
 _DOCUMENT_SLOT_MEMORY_BY_SESSION: dict[str, dict[str, str]] = {}
 _CUTOFF_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
 
+# Management fee clarification flow
+_MANAGEMENT_FEE_CLARIFICATION_PROMPT = {
+    "en": "Management quota includes multiple categories. Please select one:\n1. Category-B (Management Quota)\n2. NRI Quota",
+    "hi": "मैनेजमेंट कोटा कई श्रेणियों को शामिल करता है। कृपया एक चुनें:\n1. कैटेगरी-बी (मैनेजमेंट कोटा)\n2. NRI कोटा",
+    "te": "మేనేజ్మెంట్ కోటా బహుళ వర్గాలను కలిగి ఉంది. దయచేసి ఒకటిని ఎంచుకోండి:\n1. కెటగరీ-బి (మేనేజ్మెంట్ కోటా)\n2. NRI కోటా",
+    "ta": "மேனேஜ்மெண்ட் ஒதுக்கீடு பல வகைகளை உள்ளடக்கியுள்ளது. தயவுசெய்து ஒன்றைத் தேர்ந்தெடுக்கவும்:\n1. கேடிகரி-பி (மேனேஜ்மெண்ட் ஒதுக்கீடு)\n2. NRI ஒதுக்கீடு",
+    "mr": "मैनेजमेंट कोटा अनेक श्रेणी समाविष्ट करते. कृपया एक निवडा:\n1. कॅटेगरी-बी (मैनेजमेंट कोटा)\n2. NRI कोटा",
+    "kn": "ಮ್ಯಾನೇಜ್ಮೆಂಟ್ ಕೋಟಾ ಅನೇಕ ವರ್ಗಗಳನ್ನು ಒಳಗೊಂಡಿದೆ. ದಯವಿಟ್ಟು ಒಂದನ್ನು ಆಯ್ಕೆ ಮಾಡಿ:\n1. ಕ್ಯಾಟೆಗರಿ-ಬಿ (ಮ್ಯಾನೇಜ್ಮೆಂಟ್ ಕೋಟಾ)\n2. NRI ಕೋಟಾ",
+    "bn": "ম্যানেজমেন্ট কোটা একাধিক বিভাগ অন্তর্ভুক্ত করে। অনুগ্রহ করে একটি নির্বাচন করুন:\n1. ক্যাটাগরি-বি (ম্যানেজমেন্ট কোটা)\n2. NRI কোটা",
+    "gu": "મેનેજમેન્ટ ક્વોટા બહુવિધ શ્રેણીઓ સમાવતો છે. કૃપા કરીને એક પસંદ કરો:\n1. કેટાગરી-બી (મેનેજમેન્ટ ક્વોટા)\n2. NRI ક્વોટા",
+}
+
+_CATEGORY_B_LABEL = {
+    "en": "Category-B (Management Quota)",
+    "hi": "कैटेगरी-बी (मैनेजमेंट कोटा)",
+    "te": "కెటగరీ-బి (మేనేజ్మెంట్ కోటా)",
+    "ta": "கேடிகரி-பி (மேனேஜ్మెண்ட் ஒதுக்கீடு)",
+    "mr": "कॅटेगरी-बी (मैनेजमेंट कोटा)",
+    "kn": "ಕ್ಯಾಟೆಗರಿ-ಬಿ (ಮ್ಯಾನೇಜ್ಮೆಂಟ್ ಕೋಟಾ)",
+    "bn": "ক্যাটাগরি-বি (ম্যানেজমেন্ট কোটা)",
+    "gu": "કેટાગરી-બી (મેનેજમેન્ટ ક્વોટા)",
+}
+
+_NRI_LABEL = {
+    "en": "NRI Quota",
+    "hi": "NRI कोटा",
+    "te": "NRI కోటా",
+    "ta": "NRI ஒதுக்கீடு",
+    "mr": "NRI कोटा",
+    "kn": "NRI ಕೋಟಾ",
+    "bn": "NRI কোটা",
+    "gu": "NRI ક્વોટા",
+}
+
+_MANAGEMENT_FEE_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
+_MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION: dict[str, dict[str, str]] = {}
+
+_BTECH_FEE_BRANCHES: list[str] = [
+    "Artificial Intelligence & Data Science",
+    "Automobile Engineering",
+    "Biotechnology",
+    "Civil Engineering",
+    "Computer Science and Business Systems",
+    "Computer Science and Engineering",
+    "CSE – Artificial Intelligence & Machine Learning",
+    "CSE – Cyber Security",
+    "CSE – Data Science",
+    "CSE – Internet of Things",
+    "Electronics Engineering (VLSI Design and Technology)",
+    "Electrical and Electronics Engineering",
+    "Electronics and Communication Engineering",
+    "Electronics and Instrumentation Engineering",
+    "Information Technology",
+    "Mechanical Engineering",
+    "Robotics & Artificial Intelligence",
+]
+
+_BTECH_NRI_BRANCH_FEE_BY_BRANCH: dict[str, str] = {
+    "Computer Science and Engineering": "$5000 per annum",
+    "CSE – Artificial Intelligence & Machine Learning": "$5000 per annum",
+    "CSE – Data Science": "$5000 per annum",
+    "Information Technology": "$5000 per annum",
+    "Electronics and Communication Engineering": "$5000 per annum",
+    "Electrical and Electronics Engineering": "$3500 per annum",
+    "Mechanical Engineering": "$3500 per annum",
+    "Civil Engineering": "$3500 per annum",
+    "Automobile Engineering": "$3000 per annum",
+    "Electronics and Instrumentation Engineering": "$3000 per annum",
+}
+
+_BTECH_BRANCH_CODE_TO_FULL_NAME: dict[str, str] = {
+    "AID": "Artificial Intelligence & Data Science",
+    "AUT": "Automobile Engineering",
+    "BIO": "Biotechnology",
+    "CIV": "Civil Engineering",
+    "CSB": "Computer Science and Business Systems",
+    "CSE": "Computer Science and Engineering",
+    "CSE-CSM": "CSE – Artificial Intelligence & Machine Learning",
+    "CSE-CSC": "CSE – Cyber Security",
+    "CSE-CSD": "CSE – Data Science",
+    "CSE-CSO": "CSE – Internet of Things",
+    "VLSI": "Electronics Engineering (VLSI Design and Technology)",
+    "EEE": "Electrical and Electronics Engineering",
+    "ECE": "Electronics and Communication Engineering",
+    "EIE": "Electronics and Instrumentation Engineering",
+    "IT": "Information Technology",
+    "ME": "Mechanical Engineering",
+    "RAI": "Robotics & Artificial Intelligence",
+}
+
+_BTECH_FEE_BRANCH_ALIAS_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(cse\s*[-–]?\s*(ai\s*&?\s*ml|ai\s*ml|aiml)|ai\s*ml|aiml|artificial\s+intelligence\s*(and|&)\s*machine\s+learning)\b", re.I), "CSE – Artificial Intelligence & Machine Learning"),
+    (re.compile(r"\b(cse\s*[-–]?\s*(cyber\s+security|cys|csc)|cyber\s+security|cybersecurity|cys)\b", re.I), "CSE – Cyber Security"),
+    (re.compile(r"\b(cse\s*[-–]?\s*(data\s+science|ds|csd)|csd|data\s+science)\b", re.I), "CSE – Data Science"),
+    (re.compile(r"\b(cse\s*[-–]?\s*(internet\s+of\s+things|iot|cso)|internet\s+of\s+things|iot|cso)\b", re.I), "CSE – Internet of Things"),
+    (re.compile(r"\b(csb|computer\s+science\s+and\s+business\s+systems|computer\s+science\s*&\s*business\s+systems)\b", re.I), "Computer Science and Business Systems"),
+    (re.compile(r"\b(cse|computer\s+science\s+and\s+engineering|computer\s+science\s+engineering)\b", re.I), "Computer Science and Engineering"),
+    (re.compile(r"\b(aid|aids|artificial\s+intelligence\s*&\s*data\s+science|artificial\s+intelligence\s+and\s+data\s+science)\b", re.I), "Artificial Intelligence & Data Science"),
+    (re.compile(r"\b(vlsi|electronics\s+engineering\s*\(\s*vlsi\s+design\s+and\s+technology\s*\))\b", re.I), "Electronics Engineering (VLSI Design and Technology)"),
+    (re.compile(r"\b(eee|electrical\s+and\s+electronics\s+engineering)\b", re.I), "Electrical and Electronics Engineering"),
+    (re.compile(r"\b(ece|electronics\s+and\s+communication\s+engineering)\b", re.I), "Electronics and Communication Engineering"),
+    (re.compile(r"\b(eie|electronics\s+and\s+instrumentation\s+engineering)\b", re.I), "Electronics and Instrumentation Engineering"),
+    (re.compile(r"\b(information\s+technology|it\s+branch)\b", re.I), "Information Technology"),
+    (re.compile(r"\b(mechanical\s+engineering|mechanical|mech)\b", re.I), "Mechanical Engineering"),
+    (re.compile(r"\b(civil\s+engineering|civil)\b", re.I), "Civil Engineering"),
+    (re.compile(r"\b(automobile\s+engineering|automobile|aut)\b", re.I), "Automobile Engineering"),
+    (re.compile(r"\b(biotechnology|biotech|bio\s+technology)\b", re.I), "Biotechnology"),
+    (re.compile(r"\b(rai|robotics\s*&\s*artificial\s+intelligence|robotics\s+and\s+artificial\s+intelligence)\b", re.I), "Robotics & Artificial Intelligence"),
+]
+
+_MANDATORY_FEE_DISCLAIMER = (
+    "Fees are subject to change based on the academic year and university/government guidelines."
+)
+
+_BTECH_FEE_QUOTA_PROMPT = {
+    "en": "Please select your admission quota to view the B.Tech fee details:",
+    "hi": "बी.टेक शुल्क विवरण देखने के लिए कृपया अपना प्रवेश कोटा चुनें:",
+    "te": "బి.టెక్ ఫీజు వివరాలను చూడటానికి దయచేసి మీ ప్రవేశ కోటాను ఎంచుకోండి:",
+    "ta": "பி.டெக் கட்டண விவரங்களை பார்க்க உங்கள் சேர்க்கை ஒதுக்கீட்டைத் தேர்ந்தெடுக்கவும்:",
+    "mr": "बी.टेक फी तपशील पाहण्यासाठी कृपया तुमचा प्रवेश कोटा निवडा:",
+    "kn": "ಬಿ.ಟೆಕ್ ಶುಲ್ಕ ವಿವರಗಳನ್ನು ನೋಡಲು ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪ್ರವೇಶ ಕೋಟಾವನ್ನು ಆಯ್ಕೆಮಾಡಿ:",
+    "bn": "বি.টেক ফি বিস্তারিত দেখতে অনুগ্রহ করে আপনার ভর্তি কোটাটি নির্বাচন করুন:",
+    "gu": "બી.ટેક ફી વિગતો જોવા માટે કૃપા કરીને તમારો પ્રવેશ ક્વોટા પસંદ કરો:",
+}
+
+_BTECH_FEE_MANAGEMENT_TYPE_PROMPT = {
+    "en": "Please select the type of Management Quota:",
+    "hi": "कृपया मैनेजमेंट कोटा का प्रकार चुनें:",
+    "te": "దయచేసి మేనేజ్మెంట్ కోటా రకాన్ని ఎంచుకోండి:",
+    "ta": "மேனேஜ்மெண்ட் ஒதுக்கீட்டு வகையைத் தேர்ந்தெடுக்கவும்:",
+    "mr": "कृपया मॅनेजमेंट कोट्याचा प्रकार निवडा:",
+    "kn": "ದಯವಿಟ್ಟು ಮ್ಯಾನೇಜ್ಮೆಂಟ್ ಕೋಟಾ ಪ್ರಕಾರವನ್ನು ಆಯ್ಕೆಮಾಡಿ:",
+    "bn": "অনুগ্রহ করে ম্যানেজমেন্ট কোটার ধরন নির্বাচন করুন:",
+    "gu": "કૃપા કરીને મેનેજમેન્ટ ક્વોટાનો પ્રકાર પસંદ કરો:",
+}
+
+_BTECH_FEE_QUOTA_OPTION_LABELS: dict[str, dict[str, str]] = {
+    "category_a": {
+        "en": "Category-A (Convener Quota)",
+        "hi": "कैटेगरी-A (कन्वीनर कोटा)",
+        "te": "కేటగిరి-A (కన్వీనర్ కోటా)",
+        "ta": "வகை-A (கன்வீனர் ஒதுக்கீடு)",
+        "mr": "कॅटेगरी-A (कन्व्हीनर कोटा)",
+        "kn": "ವರ್ಗ-A (ಕನ್ವೀನರ್ ಕೋಟಾ)",
+        "bn": "ক্যাটাগরি-A (কনভেনার কোটা)",
+        "gu": "કેટેગરી-A (કન્વીનર ક્વોટા)",
+    },
+    "management": {
+        "en": "Management Quota",
+        "hi": "मैनेजमेंट कोटा",
+        "te": "మేనేజ్మెంట్ కోటా",
+        "ta": "மேனேஜ்மெண்ட் ஒதுக்கீடு",
+        "mr": "मॅनेजमेंट कोटा",
+        "kn": "ಮ್ಯಾನೇಜ್ಮೆಂಟ್ ಕೋಟಾ",
+        "bn": "ম্যানেজমেন্ট কোটা",
+        "gu": "મેનેજમેન્ટ ક્વોટા",
+    },
+    "supernumerary": {
+        "en": "Supernumerary Quota",
+        "hi": "सुपरन्यूमरेरी कोटा",
+        "te": "సూపర్న్యూమరరీ కోటా",
+        "ta": "சூப்பர்நியூமரரி ஒதுக்கீடு",
+        "mr": "सुपरन्यूमरेरी कोटा",
+        "kn": "ಸೂಪರ್‌ನ್ಯೂಮರರಿ ಕೋಟಾ",
+        "bn": "সুপারনিউমেরারি কোটা",
+        "gu": "સુપરન્યુમરરી ક્વોટા",
+    },
+}
+
+_BTECH_FEE_MANAGEMENT_TYPE_OPTION_LABELS: dict[str, dict[str, str]] = {
+    "category_b": {
+        "en": "Category-B",
+        "hi": "कैटेगरी-B",
+        "te": "కేటగిరి-B",
+        "ta": "வகை-B",
+        "mr": "कॅटेगरी-B",
+        "kn": "ವರ್ಗ-B",
+        "bn": "ক্যাটাগরি-B",
+        "gu": "કેટેગરી-B",
+    },
+    "nri": {
+        "en": "NRI Quota",
+        "hi": "NRI कोटा",
+        "te": "NRI కోటా",
+        "ta": "NRI ஒதுக்கீடு",
+        "mr": "NRI कोटा",
+        "kn": "NRI ಕೋಟಾ",
+        "bn": "NRI কোটা",
+        "gu": "NRI ક્વોટા",
+    },
+}
+
+_BTECH_FEE_FLOW_STATE_BY_SESSION: dict[str, dict[str, str]] = {}
+
 _GUIDED_BACK_OPTION_VALUE = "__guided_previous_option__"
 _GUIDED_BACK_OPTION_LABEL = "Change Previous Option (Back)"
 
@@ -599,6 +795,9 @@ def _reset_guided_session_state(session_id: str) -> None:
     """Clear all per-session guided flow memory."""
     _DOCUMENT_FLOW_STATE_BY_SESSION.pop(session_id, None)
     _CUTOFF_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    _MANAGEMENT_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    _MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION.pop(session_id, None)
+    _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
     _SESSION_LANGUAGE_BY_ID.pop(session_id, None)
 
 
@@ -859,6 +1058,9 @@ def _is_internal_option_value_input(text: str) -> bool:
         "convener",
         "management",
         "supernumerary",
+        "category_a",
+        "category_b",
+        "nri",
     }
     if normalized in canonical_values:
         return True
@@ -928,7 +1130,12 @@ def _resolve_effective_language(
         detected = _normalize_language_code(detect_language(stripped_message))
 
         if not has_session_language:
-            resolved = detected if detected in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
+            # When client explicitly sends a supported requested language for the first turn,
+            # prefer it over auto-detection so UI-selected language stays consistent.
+            if requested in SUPPORTED_LANGUAGES and requested != DEFAULT_LANGUAGE:
+                resolved = requested
+            else:
+                resolved = detected if detected in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
         elif _should_pivot_language(
             session_language=session_language,
             detected_language=detected,
@@ -1040,19 +1247,8 @@ def _resolve_user_visible_input(
     return raw_message
 
 
-def _replace_raw_url_with_markdown_link(match: re.Match[str], link_label: str) -> str:
-    """Replace a raw URL with a localized clickable markdown link."""
-    raw_url = match.group("url")
-    trimmed_url = raw_url.rstrip(".,;:!?")
-    trailing = raw_url[len(trimmed_url):]
-    normalized_url = trimmed_url
-    if normalized_url.lower().startswith("www."):
-        normalized_url = f"https://{normalized_url}"
-    return f"[{link_label}]({normalized_url}){trailing}"
-
-
 def _format_raw_urls_as_clickable_markdown(response_text: str, language: str) -> str:
-    """Ensure raw URLs are rendered as clean clickable markdown links."""
+    """Ensure raw URLs are rendered as clean clickable HTML links."""
     if not response_text:
         return response_text
 
@@ -1069,7 +1265,12 @@ def _format_raw_urls_as_clickable_markdown(response_text: str, language: str) ->
 
         line_without_url = _RAW_URL_PATTERN.sub("", line)
         link_label = club_label if re.search(r"\bclub\b", line_without_url, flags=re.IGNORECASE) else default_label
-        formatted_lines.append(_RAW_URL_PATTERN.sub(lambda m: _replace_raw_url_with_markdown_link(m, link_label), line))
+        formatted_lines.append(
+            _RAW_URL_PATTERN.sub(
+                lambda m: _build_html_link(_normalize_link_url(m.group("url")), link_label),
+                line,
+            )
+        )
 
     return "\n".join(formatted_lines)
 
@@ -1087,11 +1288,482 @@ def _is_transport_fee_query(user_message: str) -> bool:
     return has_transport_term and has_fee_term
 
 
+def _is_hostel_ac_query(user_message: str) -> bool:
+    """Detect hostel AC-room availability questions that need a fixed answer."""
+    normalized = " ".join((user_message or "").lower().split())
+    if not normalized:
+        return False
+
+    has_hostel_term = "hostel" in normalized
+    has_ac_term = any(term in normalized for term in ("ac room", "ac rooms", "air conditioned", "air-cooled", "ac"))
+    asks_availability = any(term in normalized for term in ("available", "availability", "have", "is there", "does", "do"))
+    mentions_boys = "boy" in normalized or "boys" in normalized
+    mentions_girls = "girl" in normalized or "girls" in normalized
+    return has_hostel_term and has_ac_term and (asks_availability or mentions_boys or mentions_girls)
+
+
+def _is_management_fee_query(user_message: str) -> bool:
+    """Detect if user is asking about management category or management quota fees."""
+    normalized = " ".join((user_message or "").lower().split())
+    if not normalized:
+        return False
+
+    has_management = any(term in normalized for term in ("management", "management quota", "management category", "management fee"))
+    has_fee = any(term in normalized for term in ("fee", "fees", "fee structure", "fee amount", "cost", "price"))
+    return has_management and has_fee
+
+
+def _is_btech_fee_query(user_message: str) -> bool:
+    """Detect B.Tech fee queries that must follow quota-first interactive flow."""
+    normalized = " ".join((user_message or "").lower().split())
+    if not normalized:
+        return False
+
+    has_fee = any(
+        term in normalized
+        for term in (
+            "fee",
+            "fees",
+            "fee structure",
+            "tuition",
+            "cost",
+            "price",
+            "शुल्क",
+            "फीस",
+            "ఫీజు",
+            "ఫీజులు",
+            "கட்டணம்",
+            "फी",
+            "ಶುಲ್ಕ",
+            "ফি",
+            "ફી",
+        )
+    )
+    has_btech = bool(re.search(r"\bb\.?\s*tech\b", normalized)) or "btech" in normalized
+    has_quota_context = bool(
+        re.search(
+            r"\b(category\s*-?\s*[ab]|convener|convenor|management|nri|supernumerary|quota)\b",
+            normalized,
+        )
+    )
+    return has_fee and (has_btech or has_quota_context)
+
+
+def _get_btech_fee_quota_options(language: str) -> list[dict[str, str]]:
+    return [
+        {
+            "label": _BTECH_FEE_QUOTA_OPTION_LABELS[value].get(language, _BTECH_FEE_QUOTA_OPTION_LABELS[value]["en"]),
+            "value": value,
+        }
+        for value in ("category_a", "management", "supernumerary")
+    ]
+
+
+def _get_btech_management_type_options(language: str) -> list[dict[str, str]]:
+    return [
+        {
+            "label": _BTECH_FEE_MANAGEMENT_TYPE_OPTION_LABELS[value].get(
+                language,
+                _BTECH_FEE_MANAGEMENT_TYPE_OPTION_LABELS[value]["en"],
+            ),
+            "value": value,
+        }
+        for value in ("category_b", "nri")
+    ]
+
+
+def _build_btech_branch_list() -> str:
+    return "\n".join(f"{index}. {branch}" for index, branch in enumerate(_BTECH_FEE_BRANCHES, start=1))
+
+
+def _build_btech_branch_fee_list(fee_text_by_branch: dict[str, str]) -> str:
+    lines: list[str] = []
+    for index, branch in enumerate(_BTECH_FEE_BRANCHES, start=1):
+        fee_text = fee_text_by_branch.get(branch, "Information for NRI fee regarding this branch is currently unavailable.")
+        lines.append(f"{index}. {branch} — {fee_text}")
+    return "\n".join(lines)
+
+
+def _group_branches_by_fee_value(fee_text_by_branch: dict[str, str]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for branch in _BTECH_FEE_BRANCHES:
+        fee_text = fee_text_by_branch.get(branch, "Information currently unavailable")
+        grouped.setdefault(fee_text, []).append(branch)
+    return grouped
+
+
+def _extract_btech_specific_branch_name(user_message: str) -> Optional[str]:
+    """Resolve user branch mention to full branch name for fee filtering."""
+    for pattern, branch_name in _BTECH_FEE_BRANCH_ALIAS_PATTERNS:
+        if pattern.search(user_message or ""):
+            return branch_name
+
+    normalized_message = _normalize_selection_text(user_message)
+    for branch_name in _BTECH_FEE_BRANCHES:
+        branch_key = _normalize_selection_text(branch_name)
+        if branch_key and branch_key in normalized_message:
+            return branch_name
+
+    return None
+
+
+def _build_btech_specific_fee_response(
+    language: str,
+    quota_key: str,
+    branch_name: str,
+) -> ChatResponse:
+    if quota_key == "category_a":
+        response_text = (
+            f"The Category-A (Convener Quota) tuition fee for {branch_name} is ₹1,59,600 per annum.\n\n"
+            f"{_MANDATORY_FEE_DISCLAIMER}"
+        )
+        topic = "btech_fee_category_a_specific"
+    elif quota_key == "category_b":
+        response_text = (
+            f"The Category-B (Management Quota) tuition fee for {branch_name} is approximately "
+            "₹2,50,000 – ₹4,00,000 per annum.\n\n"
+            "Note: Category-B fees may vary slightly depending on demand and academic year.\n\n"
+            f"{_MANDATORY_FEE_DISCLAIMER}"
+        )
+        topic = "btech_fee_category_b_specific"
+    elif quota_key == "nri":
+        nri_fee = _BTECH_NRI_BRANCH_FEE_BY_BRANCH.get(branch_name)
+        if nri_fee:
+            response_text = (
+                f"The NRI Quota fee for {branch_name} is {nri_fee}.\n\n"
+                "Note: Fees may vary depending on the academic year and fluctuations in USD to INR exchange rates.\n\n"
+                f"{_MANDATORY_FEE_DISCLAIMER}"
+            )
+        else:
+            response_text = (
+                f"Information for Fees regarding NRI Quota for {branch_name} is currently unavailable.\n\n"
+                f"{_MANDATORY_FEE_DISCLAIMER}"
+            )
+        topic = "btech_fee_nri_specific"
+    else:
+        response_text = (
+            f"Information for Fees regarding Supernumerary Quota for {branch_name} is currently unavailable.\n\n"
+            f"{_MANDATORY_FEE_DISCLAIMER}"
+        )
+        topic = "btech_fee_supernumerary_specific"
+
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": topic,
+            "branch": branch_name,
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+    )
+
+
+def _build_btech_quota_prompt_response(language: str) -> ChatResponse:
+    """Prompt user to select admission quota before providing B.Tech fee details."""
+    prompt_text = _get_localized_text(_BTECH_FEE_QUOTA_PROMPT, language)
+    quota_options = _get_btech_fee_quota_options(language)
+    management_type_options = _get_btech_management_type_options(language)
+    category_a_label = quota_options[0]["label"]
+    management_label = quota_options[1]["label"]
+    supernumerary_label = quota_options[2]["label"]
+    category_b_label = management_type_options[0]["label"]
+    nri_label = management_type_options[1]["label"]
+    response_text = (
+        f"{prompt_text}\n\n"
+        f"1) {category_a_label}\n"
+        f"2) {management_label}\n"
+        f"   a) {category_b_label}\n"
+        f"   b) {nri_label}\n"
+        f"3) {supernumerary_label}"
+    )
+    options = quota_options
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_quota_selection",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+        options=options,
+    )
+
+
+def _build_btech_management_type_prompt_response(language: str) -> ChatResponse:
+    prompt_text = _get_localized_text(_BTECH_FEE_MANAGEMENT_TYPE_PROMPT, language)
+    options = _get_btech_management_type_options(language)
+    category_b_label = options[0]["label"]
+    nri_label = options[1]["label"]
+    response_text = (
+        f"{prompt_text}\n\n"
+        f"1) {category_b_label}\n"
+        f"2) {nri_label}"
+    )
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_management_type_selection",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+        options=options,
+    )
+
+
+def _build_btech_category_a_fee_response(language: str) -> ChatResponse:
+    response_text = (
+        "Category-A (Convener Quota) Fee Structure:\n\n"
+        "The tuition fee for all B.Tech programmes under Category-A (Convener Quota) is ₹1,59,600 per annum. "
+        "Please note that fees may vary based on the academic year and specific branch regulations.\n\n"
+        f"{_MANDATORY_FEE_DISCLAIMER}"
+    )
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_category_a",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+    )
+
+
+def _build_btech_category_b_fee_response(language: str) -> ChatResponse:
+    response_text = (
+        "Category-B (Management Quota) Fee Structure:\n\n"
+        "The tuition fee for all B.Tech programmes under Category-B (Management Quota) is approximately "
+        "₹2,50,000 – ₹4,00,000 per annum. Please note that fees may vary based on the academic year and "
+        "specific branch regulations.\n\n"
+        "Note: Category-B fees may vary slightly depending on demand and academic year.\n\n"
+        f"{_MANDATORY_FEE_DISCLAIMER}"
+    )
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_category_b",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+    )
+
+
+def _build_btech_nri_fee_response(language: str) -> ChatResponse:
+    nri_fee_by_branch = dict(_BTECH_NRI_BRANCH_FEE_BY_BRANCH)
+    grouped = _group_branches_by_fee_value(nri_fee_by_branch)
+
+    ordered_groups: list[tuple[str, list[str]]] = []
+    for fee_value in ("$5000 per annum", "$3500 per annum", "$3000 per annum"):
+        branches = grouped.get(fee_value, [])
+        if branches:
+            ordered_groups.append((fee_value, branches))
+
+    unavailable_branches = grouped.get("Information currently unavailable", [])
+    group_lines: list[str] = []
+    for fee_value, branches in ordered_groups:
+        group_lines.append(
+            f"- The following branches have a fee of {fee_value}: {', '.join(branches)}."
+        )
+
+    if unavailable_branches:
+        group_lines.append(
+            "- Information for NRI fee regarding the following branches is currently unavailable: "
+            f"{', '.join(unavailable_branches)}."
+        )
+
+    grouped_fee_text = "\n".join(group_lines)
+
+    response_text = (
+        "NRI Quota Fee Structure (per annum):\n\n"
+        f"{grouped_fee_text}\n\n"
+        "Note: Fees may vary depending on the academic year and fluctuations in USD to INR exchange rates.\n\n"
+        f"{_MANDATORY_FEE_DISCLAIMER}"
+    )
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_nri",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+    )
+
+
+def _build_btech_supernumerary_fee_response(language: str) -> ChatResponse:
+    response_text = (
+        "Information for Fees regarding Supernumerary Quota is currently unavailable.\n\n"
+        f"{_MANDATORY_FEE_DISCLAIMER}"
+    )
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "btech_fee_supernumerary",
+            "official_link": settings.VNRVJIET_WEBSITE_URLS.get("admissions"),
+        },
+    )
+
+
+def _extract_btech_quota_selection(user_message: str, language: str) -> Optional[str]:
+    selected = _resolve_selected_option(user_message, _get_btech_fee_quota_options(language))
+    if selected:
+        return selected
+
+    selected_en = _resolve_selected_option(user_message, _get_btech_fee_quota_options("en"))
+    if selected_en:
+        return selected_en
+
+    normalized = _normalize_selection_text(user_message)
+    if normalized in {"1", "option 1", "choice 1"}:
+        return "category_a"
+    if normalized in {"2", "option 2", "choice 2"}:
+        return "management"
+    if normalized in {"3", "option 3", "choice 3"}:
+        return "supernumerary"
+
+    return None
+
+
+def _extract_btech_management_type_selection(user_message: str, language: str) -> Optional[str]:
+    selected = _resolve_selected_option(user_message, _get_btech_management_type_options(language))
+    if selected:
+        return selected
+
+    selected_en = _resolve_selected_option(user_message, _get_btech_management_type_options("en"))
+    if selected_en:
+        return selected_en
+
+    normalized = _normalize_selection_text(user_message)
+    if re.search(r"\bcategory\s*b\b", normalized):
+        return "category_b"
+    if re.search(r"\bnri\b", normalized):
+        return "nri"
+
+    if normalized in {"1", "option 1", "choice 1"}:
+        return "category_b"
+    if normalized in {"2", "option 2", "choice 2"}:
+        return "nri"
+
+    return None
+
+
+def _extract_management_fee_selection(user_message: str) -> Optional[str]:
+    """Extract management fee category selection from user message."""
+    if not user_message:
+        return None
+    
+    normalized = user_message.lower().strip()
+    
+    # Check for exact or substring matches for Category-B
+    if (normalized == "category-b" or 
+        normalized == "category b" or
+        normalized == "categoryb" or
+        normalized == "1" or 
+        normalized == "first" or
+        "category-b" in normalized or
+        "category b" in normalized):
+        return "category_b"
+    
+    # Check for exact or substring matches for NRI
+    if (normalized == "nri" or 
+        normalized == "2" or 
+        normalized == "second" or
+        "nri" in normalized):
+        return "nri"
+    
+    return None
+
+
+def _build_hostel_ac_response(language: str) -> ChatResponse:
+    """Return the fixed hostel AC availability answer required by policy."""
+    response_text = "AC rooms are not available for boys hostel. They are only available in the girls hostel."
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={"language": language, "topic": "hostel_ac_availability"},
+    )
+
+
+def _build_management_fee_clarification_response(language: str) -> ChatResponse:
+    """Build the management fee clarification prompt response."""
+    prompt_text = _get_localized_text(_MANAGEMENT_FEE_CLARIFICATION_PROMPT, language)
+    # Build structured options payload per Interactive Options Rule
+    option_b = _get_localized_text(_CATEGORY_B_LABEL, language)
+    option_nri = _get_localized_text(_NRI_LABEL, language)
+    payload = {"text": prompt_text, "options": [option_b, option_nri]}
+    # Serialize as JSON string (preserve unicode) so client can parse structured options
+    response_text = json.dumps(payload, ensure_ascii=False)
+    return ChatResponse(
+        response=response_text,
+        intent="informational",
+        metadata={
+            "language": language,
+            "topic": "management_fee_clarification",
+            "requires_selection": True,
+            "is_structured_options": True,
+        },
+    )
+
+
 def _normalize_link_url(raw_url: str) -> str:
     trimmed_url = (raw_url or "").rstrip(".,;:!?")
     if trimmed_url.lower().startswith("www."):
         return f"https://{trimmed_url}"
     return trimmed_url
+
+
+def _build_html_link(url: str, label: str = _OFFICIAL_LINK_LABEL) -> str:
+    """Build the exact HTML anchor format used for official chatbot links."""
+    clean_label = re.sub(r"^\s*👉\s*", "", label).strip()
+    return f'👉 <a href="{url}" target="_blank">{clean_label}</a>'
+
+
+def _append_official_link(response_text: str, url: Optional[str], label: str = _OFFICIAL_LINK_LABEL) -> str:
+    """Append the official clickable link at the end of a response when missing."""
+    if not response_text or not url:
+        return response_text
+
+    link = _build_html_link(url, label)
+    if response_text.rstrip().endswith(link):
+        return response_text
+
+    return f"{response_text.rstrip()}\n\n{link}"
+
+
+def _get_official_topic_link(user_message: str, response: Optional[ChatResponse] = None) -> Optional[str]:
+    """Infer the most relevant official page for a user query."""
+    normalized = " ".join((user_message or "").lower().split())
+    metadata = (response.metadata if response is not None else {}) or {}
+
+    branch = metadata.get("branch") or extract_branch(user_message)
+    if branch:
+        dept_url = _get_department_url(str(branch))
+        if dept_url:
+            return dept_url
+
+    if any(term in normalized for term in ("department", "dept")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("departments")
+
+    if any(term in normalized for term in ("hostel", "hostels", "ac room", "ac rooms", "air conditioned", "air-cooled")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("hostel")
+
+    if any(term in normalized for term in ("transport", "bus", "travel")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("transport")
+
+    if any(term in normalized for term in ("placement", "placements")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("placements")
+
+    if any(term in normalized for term in ("fee", "fees", "management", "quota", "admission", "admissions")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("admissions")
+
+    if any(term in normalized for term in ("campus", "facility", "facilities")):
+        return settings.VNRVJIET_WEBSITE_URLS.get("facilities")
+
+    return None
 
 
 def _extract_links_with_line_context(source_text: str) -> list[tuple[str, str]]:
@@ -1779,6 +2451,186 @@ def _build_document_category_prompt_response(language: str, selected_program: st
     )
 
 
+async def _handle_management_fee_clarification_flow(
+    user_message: str,
+    session_id: str,
+    language: str,
+) -> Optional[ChatResponse]:
+    """
+    Context-aware management fee clarification flow:
+    - Detect if user is asking about management fees without specifying category
+    - Ask for clarification (Category-B or NRI)
+    - Return appropriate fee response for selected category
+    """
+    flow_state = _MANAGEMENT_FEE_FLOW_STATE_BY_SESSION.get(session_id)
+    slot_state = _MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION.get(session_id, {})
+    is_management_fee_query = _is_management_fee_query(user_message)
+    flow_active = bool(flow_state and flow_state.get("step") == "awaiting_selection")
+
+    if not is_management_fee_query and not flow_active:
+        return None
+
+    # Try to extract category selection from user message
+    extracted_selection = _extract_management_fee_selection(user_message)
+
+    if extracted_selection:
+        slot_state["category"] = extracted_selection
+
+    # Store updated slot state
+    _MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION[session_id] = slot_state
+    
+    selected_category = slot_state.get("category")
+
+    # If no category selected yet, ask for clarification
+    if not selected_category:
+        _MANAGEMENT_FEE_FLOW_STATE_BY_SESSION[session_id] = {"step": "awaiting_selection"}
+        return _build_management_fee_clarification_response(language)
+
+    # Category selected, return fee information
+    if selected_category == "category_b":
+        response = _build_btech_category_b_fee_response(language)
+        response.metadata["topic"] = "management_fee"
+        # Clean up session state before returning
+        _MANAGEMENT_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+        _MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION.pop(session_id, None)
+        return response
+    else:  # NRI
+        fee_response = "For NRI quota, the fee structure is different and usually higher. Please check with the admissions office for exact details."
+        official_link = settings.VNRVJIET_WEBSITE_URLS.get("admissions")
+
+    # Clean up session state
+    _MANAGEMENT_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    _MANAGEMENT_FEE_SLOT_MEMORY_BY_SESSION.pop(session_id, None)
+
+    return ChatResponse(
+        response=fee_response,
+        intent="informational",
+        metadata={"language": language, "topic": "management_fee", "official_link": official_link},
+    )
+
+
+async def _handle_btech_fee_flow(
+    user_message: str,
+    session_id: str,
+    language: str,
+) -> Optional[ChatResponse]:
+    """
+    Guided B.Tech fee flow:
+    1) Always ask quota selection first.
+    2) If Management selected, ask subtype (Category-B or NRI).
+    3) Return quota-specific fee details with explicit branch lists.
+    """
+    flow_state = _BTECH_FEE_FLOW_STATE_BY_SESSION.get(session_id)
+    flow_active = bool(flow_state and flow_state.get("step") in {"awaiting_quota", "awaiting_management_type"})
+    is_btech_fee_query = _is_btech_fee_query(user_message)
+    detected_branch = _extract_btech_specific_branch_name(user_message)
+
+    if flow_state and not detected_branch:
+        detected_branch = flow_state.get("branch")
+
+    if not is_btech_fee_query and not flow_active:
+        return None
+
+    if is_btech_fee_query and not flow_active:
+        selected_management_type = _extract_btech_management_type_selection(user_message, language)
+        if selected_management_type == "category_b":
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "category_b", detected_branch)
+            return _build_btech_category_b_fee_response(language)
+        if selected_management_type == "nri":
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "nri", detected_branch)
+            return _build_btech_nri_fee_response(language)
+
+        selected_quota = _extract_btech_quota_selection(user_message, language)
+        if selected_quota == "category_a":
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "category_a", detected_branch)
+            return _build_btech_category_a_fee_response(language)
+        if selected_quota == "supernumerary":
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "supernumerary", detected_branch)
+            return _build_btech_supernumerary_fee_response(language)
+        if selected_quota == "management":
+            next_state = {"step": "awaiting_management_type"}
+            if detected_branch:
+                next_state["branch"] = detected_branch
+            _BTECH_FEE_FLOW_STATE_BY_SESSION[session_id] = next_state
+            return _build_btech_management_type_prompt_response(language)
+
+        next_state = {"step": "awaiting_quota"}
+        if detected_branch:
+            next_state["branch"] = detected_branch
+        _BTECH_FEE_FLOW_STATE_BY_SESSION[session_id] = next_state
+        return _build_btech_quota_prompt_response(language)
+
+    if not flow_state:
+        _BTECH_FEE_FLOW_STATE_BY_SESSION[session_id] = {"step": "awaiting_quota"}
+        return _build_btech_quota_prompt_response(language)
+
+    step = flow_state.get("step")
+
+    if step == "awaiting_quota":
+        if detected_branch:
+            flow_state["branch"] = detected_branch
+
+        selected_quota = _extract_btech_quota_selection(user_message, language)
+        selected_management_type = _extract_btech_management_type_selection(user_message, language)
+
+        if selected_management_type == "category_b":
+            _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "category_b", detected_branch)
+            return _build_btech_category_b_fee_response(language)
+        if selected_management_type == "nri":
+            _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "nri", detected_branch)
+            return _build_btech_nri_fee_response(language)
+
+        if not selected_quota:
+            return _build_btech_quota_prompt_response(language)
+
+        if selected_quota == "category_a":
+            _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "category_a", detected_branch)
+            return _build_btech_category_a_fee_response(language)
+
+        if selected_quota == "management":
+            next_state = {"step": "awaiting_management_type"}
+            if detected_branch:
+                next_state["branch"] = detected_branch
+            _BTECH_FEE_FLOW_STATE_BY_SESSION[session_id] = next_state
+            return _build_btech_management_type_prompt_response(language)
+
+        _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+        if detected_branch:
+            return _build_btech_specific_fee_response(language, "supernumerary", detected_branch)
+        return _build_btech_supernumerary_fee_response(language)
+
+    if step == "awaiting_management_type":
+        if detected_branch:
+            flow_state["branch"] = detected_branch
+
+        selected_management_type = _extract_btech_management_type_selection(user_message, language)
+        if not selected_management_type:
+            _BTECH_FEE_FLOW_STATE_BY_SESSION[session_id] = flow_state
+            return _build_btech_management_type_prompt_response(language)
+
+        _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+        if selected_management_type == "category_b":
+            if detected_branch:
+                return _build_btech_specific_fee_response(language, "category_b", detected_branch)
+            return _build_btech_category_b_fee_response(language)
+        if detected_branch:
+            return _build_btech_specific_fee_response(language, "nri", detected_branch)
+        return _build_btech_nri_fee_response(language)
+
+    _BTECH_FEE_FLOW_STATE_BY_SESSION.pop(session_id, None)
+    return None
+
+
 async def _handle_required_documents_flow(
     user_message: str,
     session_id: str,
@@ -2207,6 +3059,11 @@ async def _handle_guided_cutoff_flow(
     """Guided cutoff flow: branch -> year -> category -> gender -> final response."""
     state = _CUTOFF_FLOW_STATE_BY_SESSION.get(session_id)
 
+    # Do not apply cutoff guards unless this is an active cutoff flow
+    # or the incoming query is actually cutoff-like.
+    if state is None and not _is_cutoff_like_query(user_message):
+        return None
+
     # Policy: cutoff ranks are only for B.Tech + Convener quota.
     scoped_program = _extract_cutoff_program_scope(user_message)
     if scoped_program and scoped_program != "btech":
@@ -2597,6 +3454,12 @@ def _finalize_chat_response(response: ChatResponse, user_message: str) -> ChatRe
     response.response = _normalize_admission_category_text(response.response)
     response.response = _enforce_structured_list_formatting(response.response, user_message)
     response.response = _format_raw_urls_as_clickable_markdown(response.response, language)
+    # If this response is a structured options payload, skip appending the official link
+    is_structured = bool(response.metadata.get("is_structured_options"))
+    if not is_structured:
+        # Prefer explicit official_link provided in metadata (used for multi-turn flows)
+        official_link = response.metadata.get("official_link") or _get_official_topic_link(user_message, response)
+        response.response = _append_official_link(response.response, official_link)
     return response
 
 
@@ -2640,6 +3503,9 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             requested_language=request.language,
             force_language=request.force_language,
         )
+
+        if _is_hostel_ac_query(user_message):
+            return _finalize_chat_response(_build_hostel_ac_response(effective_language), user_message)
         
         if not user_message:
             return _finalize_chat_response(ChatResponse(
@@ -2649,6 +3515,26 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             ), user_message)
         
         logger.info(f"Processing query: {user_message[:100]}...")
+
+        # Handle mandatory B.Tech fee quota-selection flow before other fee flows.
+        btech_fee_response = await _handle_btech_fee_flow(
+            user_message=user_message,
+            session_id=session_id,
+            language=effective_language,
+        )
+        if btech_fee_response is not None:
+            _remember_session_context(session_id, user_message)
+            return _finalize_chat_response(btech_fee_response, user_message)
+
+        # Handle management fee clarification flow before document flow.
+        management_fee_response = await _handle_management_fee_clarification_flow(
+            user_message=user_message,
+            session_id=session_id,
+            language=effective_language,
+        )
+        if management_fee_response is not None:
+            _remember_session_context(session_id, user_message)
+            return _finalize_chat_response(management_fee_response, user_message)
 
         # Handle mandatory document program/category selection flow before generic intent routing.
         document_flow_response = await _handle_required_documents_flow(
