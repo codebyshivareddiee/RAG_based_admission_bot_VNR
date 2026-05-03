@@ -412,7 +412,7 @@ def get_cutoff(
     dept_url = _get_department_url(branch)
     explore_label = get_cutoff_label("explore_department", language)
     dept_label = get_cutoff_label("department", language)
-    dept_link = f"\n\n{explore_label} {branch} {dept_label}: {dept_url}" if dept_url else ""
+    dept_link = f"\n\n{explore_label} {branch} {dept_label}" if dept_url else ""
 
     # ── Trend mode: show ALL available years with trend analysis ──
     if not year and show_trend and len(set(r.get("year") for r in rows)) > 1:
@@ -603,7 +603,7 @@ def check_eligibility(
 
     # Add department URL suggestion
     dept_url = _get_department_url(result.branch)
-    dept_link = f"\n\nExplore {result.branch} Department: {dept_url}" if dept_url else ""
+    dept_link = f"\n\nExplore {result.branch} Department" if dept_url else ""
 
     closing = result.cutoff_rank
     opening = result.first_rank
